@@ -1181,7 +1181,7 @@ err:
 int q6asm_audio_client_buf_alloc(unsigned int dir,
 			struct audio_client *ac,
 			unsigned int bufsz,
-			uint32_t bufcnt)
+			unsigned int bufcnt)
 {
 	int cnt = 0;
 	int rc = 0;
@@ -1208,7 +1208,7 @@ int q6asm_audio_client_buf_alloc(unsigned int dir,
 			return 0;
 		}
 		mutex_lock(&ac->cmd_lock);
-		if (bufcnt > (U32_MAX/sizeof(struct audio_buffer))) {
+		if (bufcnt > (LONG_MAX/sizeof(struct audio_buffer))) {
 			pr_err("%s: Buffer size overflows", __func__);
 			mutex_unlock(&ac->cmd_lock);
 			goto fail;
@@ -2744,12 +2744,6 @@ static int __q6asm_open_read_write(struct audio_client *ac, uint32_t rd_format,
 		break;
 	case FORMAT_APE:
 		open.dec_fmt_id = ASM_MEDIA_FMT_APE;
-		break;
-	case FORMAT_G711_ALAW_FS:
-		open.dec_fmt_id = ASM_MEDIA_FMT_G711_ALAW_FS;
-		break;
-	case FORMAT_G711_MLAW_FS:
-		open.dec_fmt_id = ASM_MEDIA_FMT_G711_MLAW_FS;
 		break;
 	default:
 		pr_err("%s: Invalid format 0x%x\n",
@@ -5036,59 +5030,6 @@ fail_cmd:
 	return rc;
 }
 
-/*
- * q6asm_media_format_block_g711 - sends g711 decoder configuration
- *                                            parameters
- * @ac: Client session handle
- * @cfg: Audio stream manager configuration parameters
- * @stream_id: Stream id
- */
-int q6asm_media_format_block_g711(struct audio_client *ac,
-				struct asm_g711_dec_cfg *cfg, int stream_id)
-{
-	struct asm_g711_dec_fmt_blk_v2 fmt;
-	int rc = 0;
-
-	pr_debug("%s :session[%d]rate[%d]\n", __func__,
-		ac->session, cfg->sample_rate);
-
-	q6asm_stream_add_hdr(ac, &fmt.hdr, sizeof(fmt), TRUE, stream_id);
-	atomic_set(&ac->cmd_state, -1);
-
-	fmt.hdr.opcode = ASM_DATA_CMD_MEDIA_FMT_UPDATE_V2;
-	fmt.fmtblk.fmt_blk_size = sizeof(fmt) - sizeof(fmt.hdr) -
-						sizeof(fmt.fmtblk);
-
-	fmt.sample_rate = cfg->sample_rate;
-
-	rc = apr_send_pkt(ac->apr, (uint32_t *) &fmt);
-	if (rc < 0) {
-		pr_err("%s :Command media format update failed %d\n",
-				__func__, rc);
-		goto fail_cmd;
-	}
-	rc = wait_event_timeout(ac->cmd_wait,
-				(atomic_read(&ac->cmd_state) >= 0), 5*HZ);
-	if (!rc) {
-		pr_err("%s :timeout. waited for FORMAT_UPDATE\n", __func__);
-		rc = -ETIMEDOUT;
-		goto fail_cmd;
-	}
-
-	if (atomic_read(&ac->cmd_state) > 0) {
-		pr_err("%s: DSP returned error[%s]\n",
-				__func__, adsp_err_get_err_str(
-				atomic_read(&ac->cmd_state)));
-		rc = adsp_err_get_lnx_err_code(
-				atomic_read(&ac->cmd_state));
-		goto fail_cmd;
-	}
-	return 0;
-fail_cmd:
-	return rc;
-}
-EXPORT_SYMBOL(q6asm_media_format_block_g711);
-
 int q6asm_stream_media_format_block_vorbis(struct audio_client *ac,
 				struct asm_vorbis_cfg *cfg, int stream_id)
 {
@@ -6826,7 +6767,8 @@ int q6asm_set_lgesoundeffect_allparam(struct audio_client *ac, struct lgesoundef
 
 	rc = wait_event_timeout(ac->cmd_wait,
 			(atomic_read(&ac->cmd_state) >= 0), 5*HZ);
-
+			
+	
 	if (!rc) {
 		pr_err("%s: timeout, set-params paramid[0x%x]\n", __func__,
 						lgesoundeffect_allparam_str.data.param_id);

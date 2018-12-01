@@ -37,6 +37,11 @@ extern int panel_not_connected;
 int detect_factory_cable(void);
 #endif
 
+#if defined(CONFIG_LGE_DISPLAY_BL_EXTENDED)
+void mdss_dsi_panel_cmds_send(struct mdss_dsi_ctrl_pdata *ctrl,
+			struct dsi_panel_cmds *pcmds, u32 flags);
+#endif
+
 #if defined(CONFIG_LGE_LCD_TUNING)
 extern int tun_lcd[128];
 extern char read_cmd[128];
@@ -246,6 +251,50 @@ int lge_is_valid_U2_FTRIM_reg(void)
 	return ret;
 }
 EXPORT_SYMBOL(lge_is_valid_U2_FTRIM_reg);
+#if defined(CONFIG_LGE_DISPLAY_BL_EXTENDED)
+int lge_set_validate_lcd_reg(void)
+{
+	int i = 0;
+	int ret = 0;
+	int cnt = 13;
+	char ret_buf[13] = {0x0};
+	char cmd_addr[1] = {0xC7};
+	struct mdss_dsi_ctrl_pdata *ctrl;
+
+	ctrl = container_of(pdata_base, struct mdss_dsi_ctrl_pdata,
+						panel_data);
+	if(pdata_base->panel_info.panel_power_state == 0){
+		pr_err("%s: Cannot check TRIM reg because panel is off state.\n", __func__);
+		return -ENODEV;
+	}
+
+	lge_force_mdss_dsi_panel_cmd_read(cmd_addr[0], cnt, ret_buf);
+
+	memcpy(&(ctrl->screen_cmds.cmds[0].payload[1]), ret_buf, cnt);
+
+	pr_info("trim reg before writing: ");
+	for ( i = 0; i < cnt + 1; i++) {
+		pr_debug("0x%x ", ctrl->screen_cmds.cmds[0].payload[i]);
+	}
+	pr_debug("\n");
+
+	ctrl->screen_cmds.cmds[0].payload[9] += 0x22;
+
+	mdss_dsi_panel_cmds_send(ctrl, &ctrl->screen_cmds, CMD_REQ_COMMIT);
+	lge_force_mdss_dsi_panel_cmd_read(cmd_addr[0], cnt, ret_buf);
+
+	memcpy(&(ctrl->screen_cmds.cmds[0].payload[1]), ret_buf, cnt);
+
+	pr_info("trim reg after writing: ");
+	for ( i = 0; i < cnt + 1; i++) {
+		pr_debug("0x%x ", ctrl->screen_cmds.cmds[0].payload[i]);
+	}
+	pr_debug("\n");
+
+	return ret;
+}
+EXPORT_SYMBOL(lge_set_validate_lcd_reg);
+#endif
 #endif
 
 #if defined(CONFIG_LGE_DISPLAY_COMMON)
@@ -1216,7 +1265,7 @@ static int mdss_dsi_post_panel_on(struct mdss_panel_data *pdata)
 	ctrl = container_of(pdata, struct mdss_dsi_ctrl_pdata,
 				panel_data);
 
-	pr_debug("%s: ctrl=%pK ndx=%d\n", __func__, ctrl, ctrl->ndx);
+	pr_debug("%s: ctrl=%p ndx=%d\n", __func__, ctrl, ctrl->ndx);
 
 	pinfo = &pdata->panel_info;
 	if (pinfo->dcs_cmd_by_left && ctrl->ndx != DSI_CTRL_LEFT)
@@ -1259,7 +1308,7 @@ static int mdss_dsi_panel_off(struct mdss_panel_data *pdata)
 	ctrl = container_of(pdata, struct mdss_dsi_ctrl_pdata,
 				panel_data);
 
-	pr_debug("%s: ctrl=%pK ndx=%d\n", __func__, ctrl, ctrl->ndx);
+	pr_debug("%s: ctrl=%p ndx=%d\n", __func__, ctrl, ctrl->ndx);
 
 	if (pinfo->dcs_cmd_by_left) {
 		if (ctrl->ndx != DSI_CTRL_LEFT)
@@ -1273,7 +1322,6 @@ static int mdss_dsi_panel_off(struct mdss_panel_data *pdata)
 		mdss_dba_utils_video_off(pinfo->dba_data);
 		mdss_dba_utils_hdcp_enable(pinfo->dba_data, false);
 	}
-
 end:
 	pr_debug("%s:-\n", __func__);
 	return 0;
@@ -1295,7 +1343,7 @@ static int mdss_dsi_panel_low_power_config(struct mdss_panel_data *pdata,
 	ctrl = container_of(pdata, struct mdss_dsi_ctrl_pdata,
 				panel_data);
 
-	pr_debug("%s: ctrl=%pK ndx=%d enable=%d\n", __func__, ctrl, ctrl->ndx,
+	pr_debug("%s: ctrl=%p ndx=%d enable=%d\n", __func__, ctrl, ctrl->ndx,
 		enable);
 
 	/* Any panel specific low power commands/config */
@@ -1322,7 +1370,6 @@ static void mdss_dsi_parse_trigger(struct device_node *np, char *trigger,
 			*trigger = DSI_CMD_TRIGGER_SW_TE;
 	}
 }
-
 
 #if defined(CONFIG_LGE_DISPLAY_COMMON)
 int mdss_dsi_parse_dcs_cmds(struct device_node *np,
@@ -2545,6 +2592,7 @@ int mdss_dsi_panel_timing_switch(struct mdss_dsi_ctrl_pdata *ctrl,
 #endif
 #if defined(CONFIG_LGE_DISPLAY_BL_EXTENDED)
 	ctrl->display_on_cmds = pt -> display_on_cmds;
+	ctrl->screen_cmds= pt->screen_cmds;
 #endif
 #if defined(CONFIG_LGE_ENHANCE_GALLERY_SHARPNESS)
 	ctrl->sharpness_on_cmds = pt->sharpness_on_cmds;
@@ -2679,7 +2727,7 @@ static int mdss_dsi_panel_timing_from_dt(struct device_node *np,
 
 	if (np->name) {
 		pt->timing.name = kstrdup(np->name, GFP_KERNEL);
-		pr_info("%s: found new timing \"%s\" (%pK)\n", __func__,
+		pr_info("%s: found new timing \"%s\" (%p)\n", __func__,
 				np->name, &pt->timing);
 	}
 
@@ -2707,6 +2755,9 @@ static int  mdss_dsi_panel_config_res_properties(struct device_node *np,
 	mdss_dsi_parse_dcs_cmds(np, &pt->display_on_cmds,
 		"qcom,mdss-display-on-command",
 		"qcom,mdss-dsi-on-command-state");
+	mdss_dsi_parse_dcs_cmds(np, &pt->screen_cmds,
+		"qcom,mdss-dsi-screen-command",
+		"qcom,mdss-dsi-screen-command-state");
 #endif
 #if defined(CONFIG_LGE_ENHANCE_GALLERY_SHARPNESS)
 	mdss_dsi_parse_dcs_cmds(np, &pt->sharpness_on_cmds,
@@ -3053,7 +3104,7 @@ static int mdss_panel_parse_dt(struct device_node *np,
 		bridge_chip_name = of_get_property(np,
 			"qcom,bridge-name", &len);
 		if (!bridge_chip_name || len <= 0) {
-			pr_err("%s:%d Unable to read qcom,bridge_name, data=%pK,len=%d\n",
+			pr_err("%s:%d Unable to read qcom,bridge_name, data=%p,len=%d\n",
 				__func__, __LINE__, bridge_chip_name, len);
 			rc = -EINVAL;
 			goto error;
@@ -3133,7 +3184,6 @@ int mdss_dsi_panel_init(struct device_node *node,
 	pinfo->dynamic_switch_pending = false;
 	pinfo->is_lpm_mode = false;
 	pinfo->esd_rdy = false;
-
 #ifdef CONFIG_LGE_LCD_MFTS_MODE
 	if (lge_get_mfts_mode() || (detect_factory_cable() && panel_not_connected))
 		pinfo->power_ctrl = true;
@@ -3147,7 +3197,6 @@ int mdss_dsi_panel_init(struct device_node *node,
 #if defined(CONFIG_LGE_LCD_DYNAMIC_CABC_MIE_CTRL)
 	ctrl_pdata->ie_on = 1;
 #endif
-
 #if defined(CONFIG_LGE_DISPLAY_AOD_SUPPORTED)
 	if ((rc = oem_mdss_aod_init(node, ctrl_pdata)))
 		return rc;

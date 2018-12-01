@@ -521,7 +521,9 @@ static int32_t msm_flash_low(
 				pr_debug("LED current clamped to %d\n",
 					curr);
 			}
-			CDBG("low_flash_current[%d] = %d", i, curr);
+#ifdef CONFIG_MACH_LGE
+			pr_info("low_flash_current[%d] = %d\n", i, curr);
+#endif
 			led_trigger_event(flash_ctrl->torch_trigger[i],
 				curr);
 		}
@@ -558,7 +560,9 @@ static int32_t msm_flash_high(
 				pr_debug("LED flash_current[%d] clamped %d\n",
 					i, curr);
 			}
-			CDBG("high_flash_current[%d] = %d", i, curr);
+#ifdef CONFIG_MACH_LGE
+			pr_info("high_flash_current[%d] = %d\n", i, curr);
+#endif
 			led_trigger_event(flash_ctrl->flash_trigger[i],
 				curr);
 		}
@@ -572,6 +576,11 @@ static int32_t msm_flash_release(
 	struct msm_flash_ctrl_t *flash_ctrl)
 {
 	int32_t rc = 0;
+	if (flash_ctrl->flash_state == MSM_CAMERA_FLASH_RELEASE) {
+		pr_err("%s:%d Invalid flash state = %d",
+			__func__, __LINE__, flash_ctrl->flash_state);
+		return 0;
+	}
 
 	rc = flash_ctrl->func_tbl->camera_flash_off(flash_ctrl, NULL);
 	if (rc < 0) {
@@ -599,49 +608,24 @@ static int32_t msm_flash_config(struct msm_flash_ctrl_t *flash_ctrl,
 		rc = msm_flash_init(flash_ctrl, flash_data);
 		break;
 	case CFG_FLASH_RELEASE:
-		if (flash_ctrl->flash_state != MSM_CAMERA_FLASH_RELEASE) {
+		if (flash_ctrl->flash_state == MSM_CAMERA_FLASH_INIT)
 			rc = flash_ctrl->func_tbl->camera_flash_release(
 				flash_ctrl);
-		} else {
-			CDBG(pr_fmt("Invalid state : %d\n"),
-				flash_ctrl->flash_state);
-		}
 		break;
 	case CFG_FLASH_OFF:
-		if ((flash_ctrl->flash_state != MSM_CAMERA_FLASH_RELEASE) &&
-			(flash_ctrl->flash_state != MSM_CAMERA_FLASH_OFF)) {
+		if (flash_ctrl->flash_state == MSM_CAMERA_FLASH_INIT)
 			rc = flash_ctrl->func_tbl->camera_flash_off(
 				flash_ctrl, flash_data);
-			if (!rc)
-				flash_ctrl->flash_state = MSM_CAMERA_FLASH_OFF;
-		} else {
-			CDBG(pr_fmt("Invalid state : %d\n"),
-				flash_ctrl->flash_state);
-		}
 		break;
 	case CFG_FLASH_LOW:
-		if ((flash_ctrl->flash_state == MSM_CAMERA_FLASH_OFF) ||
-			(flash_ctrl->flash_state == MSM_CAMERA_FLASH_INIT)) {
+		if (flash_ctrl->flash_state == MSM_CAMERA_FLASH_INIT)
 			rc = flash_ctrl->func_tbl->camera_flash_low(
 				flash_ctrl, flash_data);
-			if (!rc)
-				flash_ctrl->flash_state = MSM_CAMERA_FLASH_LOW;
-		} else {
-			CDBG(pr_fmt("Invalid state : %d\n"),
-				flash_ctrl->flash_state);
-		}
 		break;
 	case CFG_FLASH_HIGH:
-		if ((flash_ctrl->flash_state == MSM_CAMERA_FLASH_OFF) ||
-			(flash_ctrl->flash_state == MSM_CAMERA_FLASH_INIT)) {
+		if (flash_ctrl->flash_state == MSM_CAMERA_FLASH_INIT)
 			rc = flash_ctrl->func_tbl->camera_flash_high(
 				flash_ctrl, flash_data);
-			if (!rc)
-				flash_ctrl->flash_state = MSM_CAMERA_FLASH_HIGH;
-		} else {
-			CDBG(pr_fmt("Invalid state : %d\n"),
-				flash_ctrl->flash_state);
-		}
 		break;
 	default:
 		rc = -EFAULT;
@@ -946,10 +930,6 @@ static int32_t msm_flash_get_dt_data(struct device_node *of_node,
 		return rc;
 	}
 
-#ifndef CONFIG_MACH_LGE
-	if (fctrl->flash_driver_type == FLASH_DRIVER_DEFAULT)
-		fctrl->flash_driver_type = FLASH_DRIVER_GPIO;
-#endif
 	CDBG("%s:%d fctrl->flash_driver_type = %d", __func__, __LINE__,
 		fctrl->flash_driver_type);
 

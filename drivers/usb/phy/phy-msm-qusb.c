@@ -425,8 +425,9 @@ put_vdda18_lpm:
 		dev_err(qphy->phy.dev, "Unable to set LPM of vdda18\n");
 
 disable_vdd:
-	if (toggle_vdd)
+	if (toggle_vdd) {
 		ret = qusb_phy_vdd(qphy, false);
+	}
 err_vdd:
 	if (toggle_vdd)
 		qphy->power_enabled = false;
@@ -466,8 +467,6 @@ static int qusb_phy_update_dpdm(struct usb_phy *phy, int value)
 	case POWER_SUPPLY_DP_DM_DPF_DMF:
 		dev_dbg(phy->dev, "POWER_SUPPLY_DP_DM_DPF_DMF\n");
 		if (!qphy->rm_pulldown) {
-			ret = qusb_phy_enable_power(qphy, true, false);
-
 			if (qphy->put_into_high_z_state) {
 
 				/* Bring up DVDD */
@@ -505,7 +504,7 @@ static int qusb_phy_update_dpdm(struct usb_phy *phy, int value)
 				wmb();
 			}
 
-			ret = qusb_phy_enable_power(qphy, true, true);
+			ret = qusb_phy_enable_power(qphy, true, false);
 			if (ret >= 0) {
 				qphy->rm_pulldown = true;
 				dev_dbg(phy->dev, "DP_DM_F: rm_pulldown:%d\n",
@@ -1123,7 +1122,9 @@ static int qusb_phy_set_suspend(struct usb_phy *phy, int suspend)
 			 * with or without USB cable, it doesn't require
 			 * to put QUSB PHY into high-z state.
 			 */
+#ifndef CONFIG_LGE_USB_G_ANDROID
 			qphy->put_into_high_z_state = true;
+#endif
 		}
 		qphy->suspended = true;
 	} else {

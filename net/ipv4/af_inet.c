@@ -165,10 +165,10 @@ void inet_sock_destruct(struct sock *sk)
 		return;
 	}
 
-#ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
+	#ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
 	if (sock_flag(sk, SOCK_MPTCP))
 		mptcp_disable_static_key();
-#endif
+	#endif
 
 	WARN_ON(atomic_read(&sk->sk_rmem_alloc));
 	WARN_ON(atomic_read(&sk->sk_wmem_alloc));
@@ -270,12 +270,11 @@ EXPORT_SYMBOL(inet_listen);
 /*
  *	Create an inet socket.
  */
-
 #ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
 int inet_create(struct net *net, struct socket *sock, int protocol, int kern)
 #else
 static int inet_create(struct net *net, struct socket *sock, int protocol,
-		       int kern)
+                      int kern)
 #endif
 {
 	struct sock *sk;
@@ -1801,12 +1800,10 @@ static int __init inet_init(void)
 	 */
 
 	ip_init();
-
 #ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
 	/* We must initialize MPTCP before TCP. */
 	mptcp_init();
 #endif
-
 	tcp_v4_init();
 
 	/* Setup TCP slab cache for open requests. */

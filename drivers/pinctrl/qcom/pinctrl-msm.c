@@ -517,7 +517,6 @@ static void msm_gpio_dbg_show_one(struct seq_file *s,
 #ifdef CONFIG_MACH_MSM8996_ELSA
 	u32 val = 0 ;
 #endif
-
 	static const char * const pulls[] = {
 		"no pull",
 		"pull down",
@@ -527,7 +526,6 @@ static void msm_gpio_dbg_show_one(struct seq_file *s,
 
 	g = &pctrl->soc->groups[offset];
 	ctl_reg = readl(pctrl->regs + g->ctl_reg);
-
 #ifdef CONFIG_MACH_MSM8996_ELSA
 	val = readl(pctrl->regs + g->io_reg);
 	val &= BIT(g->out_bit);

@@ -79,7 +79,7 @@ static int lge_extn_cable_flag;
 
 #ifdef CONFIG_SND_SOC_ES9018
 #define LGE_NORMAL_HEADSET_THRESHOLD	50
-#define LGE_ADVANCED_HEADSET_THRESHOLD	350
+#define LGE_ADVANCED_HEADSET_THRESHOLD	380
 #else
 #define LGE_NORMAL_HEADSET_THRESHOLD	100
 #define LGE_ADVANCED_HEADSET_THRESHOLD	400
@@ -699,6 +699,9 @@ static void wcd_mbhc_report_plug(struct wcd_mbhc *mbhc, int insertion,
 		mbhc->zl = mbhc->zr = 0;
 		pr_debug("%s: Reporting removal %d(%x)\n", __func__,
 			 jack_type, mbhc->hph_status);
+		pr_info("[LGE MBHC] %s cable is Removed. jack_type=%x\n",
+					(jack_type-1)?"4 Pin":"3 Pin",
+					jack_type);
 		wcd_mbhc_jack_report(mbhc, &mbhc->headset_jack,
 				mbhc->hph_status, WCD_MBHC_JACK_MASK);
 		wcd_mbhc_set_and_turnoff_hph_padac(mbhc);
@@ -766,6 +769,7 @@ static void wcd_mbhc_report_plug(struct wcd_mbhc *mbhc, int insertion,
 						WCD_MBHC_ELECT_DETECTION_TYPE,
 						0);
 				usleep_range(200, 210);
+				pr_info("[LGE MBHC] %s: WCD_MBHC_ELEC_HS_REM enable \n", __func__);
 				wcd_mbhc_hs_elec_irq(mbhc,
 						     WCD_MBHC_ELEC_HS_REM,
 						     true);
@@ -827,11 +831,12 @@ static void wcd_mbhc_report_plug(struct wcd_mbhc *mbhc, int insertion,
 #endif
 		pr_debug("%s: Reporting insertion %d(%x)\n", __func__,
 			 jack_type, mbhc->hph_status);
+		pr_info("[LGE MBHC] Impedance zl: %d, zr:%d\n", mbhc->zl, mbhc->zr);
 		if (mbhc->mbhc_cfg->detect_extn_cable) {
-			wcd_mbhc_jack_report(mbhc, &mbhc->headset_jack,
+		wcd_mbhc_jack_report(mbhc, &mbhc->headset_jack,
 				    mbhc->hph_status, WCD_MBHC_JACK_MASK);
 		} else {
-			wcd_mbhc_jack_report(mbhc, &mbhc->headset_jack,
+		wcd_mbhc_jack_report(mbhc, &mbhc->headset_jack,
 				    (mbhc->hph_status | SND_JACK_MECHANICAL),
 				    WCD_MBHC_JACK_MASK);
 		}
@@ -931,7 +936,7 @@ static void wcd_mbhc_find_plug_and_report(struct wcd_mbhc *mbhc,
 {
 	bool anc_mic_found = false;
 	enum snd_jack_types jack_type;
-	pr_debug("%s: enter current_plug(%d) new_plug(%d)\n",
+	pr_info("[LGE MBHC] %s: enter current_plug(%d) new_plug(%d)\n",
 		 __func__, mbhc->current_plug, plug_type);
 
 	WCD_MBHC_RSC_ASSERT_LOCKED(mbhc);
@@ -989,6 +994,7 @@ static void wcd_mbhc_find_plug_and_report(struct wcd_mbhc *mbhc,
 			 */
 			WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_ELECT_SCHMT_ISRC,
 						 3);
+			pr_info("[LGE MBHC] %s: WCD_MBHC_ELEC_HS_INS enable \n", __func__);
 			wcd_mbhc_hs_elec_irq(mbhc, WCD_MBHC_ELEC_HS_INS,
 					     true);
 		} else {
@@ -1011,7 +1017,7 @@ static int wcd_check_cross_conn(struct wcd_mbhc *mbhc)
 	bool hphl_sch_res, hphr_sch_res;
 
 	if (wcd_swch_level_remove(mbhc)) {
-		pr_debug("%s: Switch level is low\n", __func__);
+		pr_info("[LGE MBHC] %s: Switch level is low\n", __func__);
 		return -EINVAL;
 	}
 
@@ -1341,12 +1347,14 @@ static void wcd_correct_swch_plug(struct work_struct *work)
 		WCD_MBHC_RSC_UNLOCK(mbhc);
 		goto correct_plug_type;
 	} else if (plug_type == MBHC_PLUG_TYPE_HIGH_HPH && mbhc->mbhc_cfg->detect_extn_cable){
+		pr_info("[LGE MBHC] %s: HIGH_HPH is detected. Raise MIC Bias2 to 2.7v and checking impedance .\n", __func__);
+			mbhc->mbhc_cb->mbhc_micb_ctrl_thr_mic(mbhc->codec,MIC_BIAS_2, true);
 		if (mbhc->impedance_detect && mbhc->mbhc_cb->compute_impedance && (mbhc->mbhc_cfg->linein_th != 0)) {
 			mbhc->mbhc_cb->compute_impedance(mbhc, &mbhc->zl, &mbhc->zr);
 
 			if ((mbhc->zl < LGE_ADVANCED_HEADSET_THRESHOLD) || (mbhc->zr < LGE_ADVANCED_HEADSET_THRESHOLD)) {
 				pr_info("[LGE MBHC] %s: High impedance found. Force 4pin Headset. plug_type:0x%x, zl=%d , zr=%d\n",
-					__func__, plug_type,mbhc->zl,mbhc->zr);
+		                __func__, plug_type,mbhc->zl,mbhc->zr);
 
 				mbhc->micbias_enable = true;
 				plug_type = MBHC_PLUG_TYPE_HEADSET;
@@ -1358,7 +1366,6 @@ static void wcd_correct_swch_plug(struct work_struct *work)
 		}
 	}
 #endif
-
 	if ((plug_type == MBHC_PLUG_TYPE_HEADSET ||
 	     plug_type == MBHC_PLUG_TYPE_HEADPHONE) &&
 	    (!wcd_swch_level_remove(mbhc))) {
@@ -1508,6 +1515,12 @@ correct_plug_type:
 				}
 			} else {
 				if (mbhc->impedance_detect && mbhc->mbhc_cb->compute_impedance && (mbhc->mbhc_cfg->linein_th != 0)) {
+					pr_debug("[LGE MBHC] %s: cable is HIGH_HPH in correct-loop. checking Imp.\n", __func__);
+					if ((snd_soc_read(mbhc->codec, 0x0623) & 0x3f) != 0x22) {
+						pr_info("[LGE MBHC] %s: Raise mic bias to 2.7v in correct-loop\n", __func__);
+						mbhc->mbhc_cb->mbhc_micb_ctrl_thr_mic(mbhc->codec,
+										MIC_BIAS_2, true);
+					}
 					if ((mbhc->zl < LGE_ADVANCED_HEADSET_THRESHOLD) || (mbhc->zr < LGE_ADVANCED_HEADSET_THRESHOLD)) {
 						pr_info("[LGE MBHC] %s: High Imp. Headset found. Force 4pin Headset. plug_type:0x%x, zl=%d , zr=%d\n",
 									__func__, plug_type,mbhc->zl,mbhc->zr);
@@ -1547,7 +1560,7 @@ correct_plug_type:
 				      MBHC_PLUG_TYPE_ANC_HEADPHONE)) &&
 				    !wcd_swch_level_remove(mbhc) &&
 				    !mbhc->btn_press_intr) {
-					pr_debug("%s: cable is %sheadset\n",
+					pr_info("[LGE MBHC] %s: cable is %sheadset\n",
 						__func__,
 						((spl_hs_count ==
 							WCD_MBHC_SPL_HS_CNT) ?
@@ -1560,7 +1573,8 @@ correct_plug_type:
 	}
 	if (!wrk_complete && mbhc->btn_press_intr) {
 		if (wcd_mbhc_get_button_mask(mbhc) & SND_JACK_BTN_0) {
-			pr_debug("%s: Can be slow insertion of headphone\n", __func__);
+			pr_info("[LGE MBHC] %s: Can be slow insertion of headphone\n",
+				 __func__);
 			wcd_cancel_btn_work(mbhc);
 			plug_type = MBHC_PLUG_TYPE_HEADPHONE;
 		} else {
@@ -1628,9 +1642,10 @@ exit:
 
 	if (mbhc->mbhc_cfg->detect_extn_cable &&
 	    ((plug_type == MBHC_PLUG_TYPE_HEADPHONE) ||
-	     (plug_type == MBHC_PLUG_TYPE_HEADSET)) &&
+	     (plug_type == MBHC_PLUG_TYPE_HEADSET)) && !hs_comp_res &&
 	    !mbhc->hs_detect_work_stop) {
 		WCD_MBHC_RSC_LOCK(mbhc);
+		pr_info("[LGE MBHC] %s: WCD_MBHC_ELEC_HS_REM enable \n", __func__);
 		wcd_mbhc_hs_elec_irq(mbhc, WCD_MBHC_ELEC_HS_REM, true);
 		WCD_MBHC_RSC_UNLOCK(mbhc);
 	}
@@ -1641,7 +1656,7 @@ exit:
 		mbhc->mbhc_cb->hph_pull_down_ctrl(codec, true);
 
 	mbhc->mbhc_cb->lock_sleep(mbhc, false);
-	pr_debug("%s: leave\n", __func__);
+	pr_info("[LGE MBHC] %s: leave\n", __func__);
 }
 
 /* called under codec_resource_lock acquisition */
@@ -1817,20 +1832,20 @@ static irqreturn_t wcd_mbhc_mech_plug_detect_irq(int irq, void *data)
 	int r = IRQ_HANDLED;
 	struct wcd_mbhc *mbhc = data;
 
-	pr_debug("%s: enter\n", __func__);
+	pr_info("[LGE MBHC] %s: enter\n", __func__);
 	if (unlikely((mbhc->mbhc_cb->lock_sleep(mbhc, true)) == false)) {
 		pr_warn("%s: failed to hold suspend\n", __func__);
 		r = IRQ_NONE;
 	} else {
 		/* Call handler */
 #ifdef CONFIG_SND_SOC_ES9018
-		// Temp for ES9218 RevA
-		es9218_sabre_headphone_on();
+// Temp for ES9218 RevA
+        es9218_sabre_headphone_on();
 #endif
 		wcd_mbhc_swch_irq_handler(mbhc);
 		mbhc->mbhc_cb->lock_sleep(mbhc, false);
 	}
-	pr_debug("%s: leave %d\n", __func__, r);
+	pr_info("[LGE MBHC] %s: leave %d\n", __func__, r);
 	return r;
 }
 
@@ -1881,6 +1896,7 @@ static irqreturn_t wcd_mbhc_hs_ins_irq(int irq, void *data)
 	static u16 hphl_trigerred;
 	static u16 mic_trigerred;
 
+	pr_info("[LGE MBHC] %s: enter\n", __func__);
 	pr_debug("%s: enter\n", __func__);
 	if (!mbhc->mbhc_cfg->detect_extn_cable) {
 		pr_debug("%s: Returning as Extension cable feature not enabled\n",
@@ -1931,6 +1947,7 @@ static irqreturn_t wcd_mbhc_hs_ins_irq(int irq, void *data)
 		}
 	}
 	WCD_MBHC_RSC_UNLOCK(mbhc);
+	pr_info("[LGE MBHC] %s: leave\n", __func__);
 	pr_debug("%s: leave\n", __func__);
 	return IRQ_HANDLED;
 
@@ -1948,8 +1965,12 @@ determine_plug:
 	mic_trigerred = 0;
 	mbhc->is_extn_cable = true;
 	mbhc->btn_press_intr = false;
+#ifdef CONFIG_MACH_LGE
+	msleep(500);
+#endif
 	wcd_mbhc_detect_plug_type(mbhc);
 	WCD_MBHC_RSC_UNLOCK(mbhc);
+	pr_info("[LGE MBHC] %s: determine_plug leave\n", __func__);
 	pr_debug("%s: leave\n", __func__);
 	return IRQ_HANDLED;
 }
@@ -1964,6 +1985,7 @@ static irqreturn_t wcd_mbhc_hs_rem_irq(int irq, void *data)
 	bool removed = true;
 	int retry = 0;
 
+	pr_info("[LGE MBHC] %s: enter\n", __func__);
 	pr_debug("%s: enter\n", __func__);
 
 	WCD_MBHC_RSC_LOCK(mbhc);
@@ -2027,6 +2049,7 @@ static irqreturn_t wcd_mbhc_hs_rem_irq(int irq, void *data)
 	}
 exit:
 	WCD_MBHC_RSC_UNLOCK(mbhc);
+	pr_info("[LGE MBHC] %s: leave\n", __func__);
 	pr_debug("%s: leave\n", __func__);
 	return IRQ_HANDLED;
 
@@ -2065,6 +2088,7 @@ report_unplug:
 	hphl_trigerred = 0;
 	mic_trigerred = 0;
 	WCD_MBHC_RSC_UNLOCK(mbhc);
+	pr_info("[LGE MBHC] %s: report_unplug leave\n", __func__);
 	pr_debug("%s: leave\n", __func__);
 	return IRQ_HANDLED;
 }
@@ -2131,7 +2155,7 @@ static irqreturn_t wcd_mbhc_btn_press_handler(int irq, void *data)
 	mbhc->is_btn_press = true;
 	wcd_cancel_btn_work(mbhc);
 	if (wcd_swch_level_remove(mbhc)) {
-		pr_debug("%s: Switch level is low ", __func__);
+		pr_info("[LGE MBHC] %s: Switch level is low\n", __func__);
 		goto done;
 	}
 	mbhc->btn_press_intr = true;
@@ -2139,13 +2163,13 @@ static irqreturn_t wcd_mbhc_btn_press_handler(int irq, void *data)
 	msec_val = jiffies_to_msecs(jiffies - mbhc->jiffies_atreport);
 	pr_debug("%s: msec_val = %ld\n", __func__, msec_val);
 	if (msec_val < MBHC_BUTTON_PRESS_THRESHOLD_MIN) {
-		pr_debug("%s: Too short, ignore button press\n", __func__);
+		pr_info("[LGE MBHC] %s: Too short, ignore button press\n", __func__);
 		goto done;
 	}
 
 	/* If switch interrupt already kicked in, ignore button press */
 	if (mbhc->in_swch_irq_handler) {
-		pr_debug("%s: Swtich level changed, ignore button press\n",
+		pr_info("[LGE MBHC] %s: Swtich level changed, ignore button press\n",
 			 __func__);
 		goto done;
 	}
@@ -2154,6 +2178,7 @@ static irqreturn_t wcd_mbhc_btn_press_handler(int irq, void *data)
 				__func__);
 		goto done;
 	}
+	pr_info("[LGE MBHC] %s: enter\n", __func__);
 	mask = wcd_mbhc_get_button_mask(mbhc);
 #ifdef CONFIG_MACH_LGE
 	if (!(mask & (SND_JACK_BTN_0 | SND_JACK_BTN_1 | SND_JACK_BTN_2| SND_JACK_BTN_3))) {
@@ -2180,10 +2205,10 @@ static irqreturn_t wcd_mbhc_release_handler(int irq, void *data)
 	struct wcd_mbhc *mbhc = data;
 	int ret;
 
-	pr_debug("%s: enter\n", __func__);
+	pr_info("[LGE MBHC] %s: enter\n", __func__);
 	WCD_MBHC_RSC_LOCK(mbhc);
 	if (wcd_swch_level_remove(mbhc)) {
-		pr_debug("%s: Switch level is low ", __func__);
+		pr_info("[LGE MBHC] %s: Switch level is low\n", __func__);
 		goto exit;
 	}
 
@@ -2528,7 +2553,7 @@ int wcd_mbhc_start(struct wcd_mbhc *mbhc,
 			schedule_delayed_work(&mbhc->mbhc_firmware_dwork,
 				      usecs_to_jiffies(FW_READ_TIMEOUT));
 		else
-			pr_err("%s: Skipping to read mbhc fw, 0x%pK %pK\n",
+			pr_err("%s: Skipping to read mbhc fw, 0x%p %p\n",
 				 __func__, mbhc->mbhc_fw, mbhc->mbhc_cal);
 	}
 	pr_debug("%s: leave %d\n", __func__, rc);

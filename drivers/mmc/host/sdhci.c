@@ -390,7 +390,6 @@ static void sdhci_reinit(struct sdhci_host *host)
 	}
 	sdhci_enable_card_detection(host);
 }
-
 #if !defined(SDHCI_USE_LEDS_CLASS) && !defined(CONFIG_MACH_LGE)
 static void sdhci_activate_led(struct sdhci_host *host)
 {
@@ -410,7 +409,6 @@ static void sdhci_deactivate_led(struct sdhci_host *host)
 	sdhci_writeb(host, ctrl, SDHCI_HOST_CONTROL);
 }
 #endif
-
 #ifdef SDHCI_USE_LEDS_CLASS
 static void sdhci_led_control(struct led_classdev *led,
 	enum led_brightness brightness)
@@ -3062,8 +3060,7 @@ static void sdhci_data_irq(struct sdhci_host *host, u32 intmask)
 			host->ops->adma_workaround(host, intmask);
 	}
 	if (host->data->error) {
-		if (intmask & (SDHCI_INT_DATA_CRC | SDHCI_INT_DATA_TIMEOUT
-					| SDHCI_INT_DATA_END_BIT)) {
+		if (intmask & (SDHCI_INT_DATA_CRC | SDHCI_INT_DATA_TIMEOUT)) {
 			command = SDHCI_GET_CMD(sdhci_readw(host,
 							    SDHCI_COMMAND));
 			if ((command != MMC_SEND_TUNING_BLOCK_HS200) &&
@@ -4167,15 +4164,10 @@ int sdhci_add_host(struct sdhci_host *host)
 	 * value.
 	 */
 	max_current_caps = sdhci_readl(host, SDHCI_MAX_CURRENT);
-	if (!max_current_caps) {
-		u32 curr = 0;
-
-		if (!IS_ERR(mmc->supply.vmmc))
-			curr = regulator_get_current_limit(mmc->supply.vmmc);
-		else if (host->ops->get_current_limit)
-			curr = host->ops->get_current_limit(host);
-
+	if (!max_current_caps && !IS_ERR(mmc->supply.vmmc)) {
+		int curr = regulator_get_current_limit(mmc->supply.vmmc);
 		if (curr > 0) {
+
 			/* convert to SDHCI_MAX_CURRENT format */
 			curr = curr/1000;  /* convert to mA */
 			curr = curr/SDHCI_MAX_CURRENT_MULTIPLIER;

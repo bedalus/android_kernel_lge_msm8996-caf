@@ -164,10 +164,6 @@ EXPORT_SYMBOL_GPL(mptcp_fallback_default);
 /* Set default value from kernel configuration at bootup */
 static int __init mptcp_path_manager_default(void)
 {
-#ifdef CONFIG_MPTCP_PM_ADVANCED
 	return mptcp_set_default_path_manager(CONFIG_DEFAULT_MPTCP_PM);
-#else
-	return mptcp_set_default_path_manager("default");
-#endif
 }
 late_initcall(mptcp_path_manager_default);

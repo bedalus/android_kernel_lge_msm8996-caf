@@ -44,8 +44,6 @@ extern int skip_lcd_error_check;
 
 static DEFINE_MUTEX(cmd_clk_mtx);
 
-static DEFINE_MUTEX(cmd_off_mtx);
-
 enum mdss_mdp_cmd_autorefresh_state {
 	MDP_AUTOREFRESH_OFF,
 	MDP_AUTOREFRESH_ON_REQUESTED,
@@ -1295,7 +1293,7 @@ static int mdss_mdp_cmd_add_lineptr_handler(struct mdss_mdp_ctl *ctl,
 	unsigned long flags;
 	int ret = 0;
 
-	mutex_lock(&cmd_off_mtx);
+	mutex_lock(&ctl->offlock);
 	ctx = (struct mdss_mdp_cmd_ctx *) ctl->intf_ctx[MASTER_CTX];
 	if (!ctx || !ctl->is_master) {
 		ret = -EINVAL;
@@ -1323,7 +1321,7 @@ static int mdss_mdp_cmd_add_lineptr_handler(struct mdss_mdp_ctl *ctl,
 	if (ctl->mfd->split_mode == MDP_DUAL_LM_DUAL_DISPLAY)
 		mutex_unlock(&cmd_clk_mtx);
 done:
-	mutex_unlock(&cmd_off_mtx);
+	mutex_unlock(&ctl->offlock);
 
 	return ret;
 }
@@ -1764,7 +1762,7 @@ static int mdss_mdp_cmd_add_vsync_handler(struct mdss_mdp_ctl *ctl,
 	bool enable_rdptr = false;
 	int ret = 0;
 
-	mutex_lock(&cmd_off_mtx);
+	mutex_lock(&ctl->offlock);
 	ctx = (struct mdss_mdp_cmd_ctx *) ctl->intf_ctx[MASTER_CTX];
 	if (!ctx) {
 		pr_err("%s: invalid ctx\n", __func__);
@@ -1801,7 +1799,7 @@ static int mdss_mdp_cmd_add_vsync_handler(struct mdss_mdp_ctl *ctl,
 	}
 
 done:
-	mutex_unlock(&cmd_off_mtx);
+	mutex_unlock(&ctl->offlock);
 
 	return ret;
 }
@@ -1891,13 +1889,12 @@ static int mdss_mdp_cmd_wait4pingpong(struct mdss_mdp_ctl *ctl, void *arg)
 		pr_err("invalid ctx\n");
 		return -ENODEV;
 	}
-
 	pdata = ctl->panel_data;
 
 	MDSS_XLOG(ctl->num, atomic_read(&ctx->koff_cnt), ctl->roi_bkup.w,
 			ctl->roi_bkup.h);
 
-	pr_debug("%s: intf_num=%d ctx=%pK koff_cnt=%d\n", __func__,
+	pr_debug("%s: intf_num=%d ctx=%p koff_cnt=%d\n", __func__,
 			ctl->intf_num, ctx, atomic_read(&ctx->koff_cnt));
 
 	rc = wait_event_timeout(ctx->pp_waitq,
@@ -1933,11 +1930,13 @@ static int mdss_mdp_cmd_wait4pingpong(struct mdss_mdp_ctl *ctl, void *arg)
 #else
 	if (rc <= 0) {
 #endif
+
 		pr_err("%s:wait4pingpong timed out ctl=%d rc=%d cnt=%d koff_cnt=%d\n",
 				__func__,
 				ctl->num, rc, ctx->pp_timeout_report_cnt,
 				atomic_read(&ctx->koff_cnt));
 		if (ctx->pp_timeout_report_cnt == 0) {
+			WARN(1, "mdss_mdp_cmd_wait4pingpong timed out: rc=%d, ctl=%d\n", rc, ctl->num);
 			MDSS_XLOG(0xbad);
 			MDSS_XLOG_TOUT_HANDLER("mdp", "dsi0_ctrl", "dsi0_phy",
 				"dsi1_ctrl", "dsi1_phy", "vbif", "vbif_nrt",
@@ -2095,9 +2094,7 @@ static int mdss_mdp_cmd_panel_on(struct mdss_mdp_ctl *ctl,
 					NULL, CTL_INTF_EVENT_FLAG_DEFAULT);
 			WARN(rc, "intf %d panel on error (%d)\n",
 					ctl->intf_num, rc);
-
 		}
-
 #if defined(CONFIG_LGE_DISPLAY_COMMON)
 		if (!skip_lcd_error_check)
 			rc = mdss_mdp_tearcheck_enable(ctl, true);
@@ -2142,7 +2139,7 @@ int mdss_mdp_cmd_set_autorefresh_mode(struct mdss_mdp_ctl *mctl, int frame_cnt)
 	struct mdss_panel_info *pinfo;
 
 	if (!mctl || !mctl->is_master || !mctl->panel_data) {
-		pr_err("invalid ctl mctl:%pK pdata:%pK\n",
+		pr_err("invalid ctl mctl:%p pdata:%p\n",
 			mctl, mctl ? mctl->panel_data : 0);
 		return -ENODEV;
 	}
@@ -2416,7 +2413,7 @@ static u32 get_autorefresh_timeout(struct mdss_mdp_ctl *ctl,
 		line_count = mdss_mdp_pingpong_read(mixer->pingpong_base,
 			MDSS_MDP_REG_PP_SYNC_CONFIG_HEIGHT) & 0xffff;
 
-	fps = mdss_panel_get_framerate(pinfo, FPS_RESOLUTION_HZ);
+	fps = mdss_panel_get_framerate(pinfo);
 	v_total = mdss_panel_get_vtotal(pinfo);
 
 	/*
@@ -2982,7 +2979,6 @@ int mdss_mdp_cmd_stop(struct mdss_mdp_ctl *ctl, int panel_power_state)
 	MDSS_XLOG(ctx->panel_power_state, panel_power_state);
 
 	mutex_lock(&ctl->offlock);
-	mutex_lock(&cmd_off_mtx);
 	if (mdss_panel_is_power_off(panel_power_state)) {
 		/* Transition to display off */
 		send_panel_events = true;
@@ -3102,7 +3098,6 @@ end:
 	}
 
 	MDSS_XLOG(ctl->num, atomic_read(&ctx->koff_cnt), XLOG_FUNC_EXIT);
-	mutex_unlock(&cmd_off_mtx);
 	mutex_unlock(&ctl->offlock);
 	pr_debug("%s:-\n", __func__);
 
@@ -3211,7 +3206,7 @@ static int mdss_mdp_cmd_ctx_setup(struct mdss_mdp_ctl *ctl,
 
 	ctx->intf_stopped = 0;
 
-	pr_debug("%s: ctx=%pK num=%d aux=%d\n", __func__, ctx,
+	pr_debug("%s: ctx=%p num=%d aux=%d\n", __func__, ctx,
 		default_pp_num, aux_pp_num);
 	MDSS_XLOG(ctl->num, atomic_read(&ctx->koff_cnt));
 

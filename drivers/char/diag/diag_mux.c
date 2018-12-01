@@ -27,7 +27,6 @@
 #include "diag_mux.h"
 #include "diag_usb.h"
 #include "diag_memorydevice.h"
-
 #ifdef CONFIG_LGE_DM_APP
 #include "lg_dm_tty.h"
 #include "diagmem.h"

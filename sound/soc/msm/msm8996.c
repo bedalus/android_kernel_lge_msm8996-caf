@@ -10,7 +10,6 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
-
 //#define DEBUG
 #include <linux/clk.h>
 #include <linux/delay.h>
@@ -230,6 +229,7 @@ static void *def_tasha_mbhc_cal(void);
 static int msm_snd_enable_codec_ext_clk(struct snd_soc_codec *codec,
 					int enable, bool dapm);
 static int msm8996_wsa881x_init(struct snd_soc_component *component);
+
 
 /*
  * Need to report LINEIN
@@ -776,7 +776,6 @@ static int slim6_rx_sample_rate_put(struct snd_kcontrol *kcontrol,
 		slim6_rx_sample_rate = SAMPLING_RATE_48KHZ;
 		break;
 	}
-
 #ifdef CONFIG_SND_USE_SEC_MI2S
 	sec_mi2s_sample_rate = slim6_rx_sample_rate;
 #endif
@@ -910,7 +909,6 @@ static int slim0_rx_sample_rate_put(struct snd_kcontrol *kcontrol,
 	default:
 		slim0_rx_sample_rate = SAMPLING_RATE_48KHZ;
 	}
-
 #ifdef CONFIG_SND_USE_SEC_MI2S
 	sec_mi2s_sample_rate = slim0_rx_sample_rate;
 #endif
@@ -1058,7 +1056,6 @@ static int slim6_rx_bit_format_put(struct snd_kcontrol *kcontrol,
 		slim6_rx_bit_format = SNDRV_PCM_FORMAT_S16_LE;
 		break;
 	}
-
 #ifdef CONFIG_SND_USE_SEC_MI2S
 	sec_mi2s_bit_format = slim6_rx_bit_format;
 #endif
@@ -1106,7 +1103,6 @@ static int slim0_rx_bit_format_put(struct snd_kcontrol *kcontrol,
 		slim0_rx_bit_format = SNDRV_PCM_FORMAT_S16_LE;
 		break;
 	}
-
 #ifdef CONFIG_SND_USE_SEC_MI2S
 	sec_mi2s_bit_format = slim0_rx_bit_format;
 #endif
@@ -4489,7 +4485,6 @@ static int msm8996_asoc_machine_probe(struct platform_device *pdev)
 	}
 
 	spdev = pdev;
-
 	ret = msm8996_populate_dai_link_component_of_node(card);
 	if (ret) {
 		ret = -EPROBE_DEFER;

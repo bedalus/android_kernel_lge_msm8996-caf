@@ -215,11 +215,6 @@
 			reg = <0 0xb1c00000 0 0x23ff000>;
 			label = "cont_splash_mem_hdmi";
 		};
-
-		lk_mem: lk_pool@0x91600000 {
-			no-map;
-			reg = <0 0x91600000 0 0x00600000>;
-		};
 	};
 };
 
@@ -2465,8 +2460,6 @@
 		qcom,use-sw-aes-xts-algo;
 		qcom,use-sw-aes-ccm-algo;
 		qcom,use-sw-ahash-algo;
-		qcom,use-sw-hmac-algo;
-		qcom,use-sw-aead-algo;
 	};
 
 	qcom_cedev: qcedev@660000 {
@@ -2521,7 +2514,7 @@
 			 <&clock_gcc clk_gcc_ce1_ahb_m_clk>,
 			 <&clock_gcc clk_gcc_ce1_axi_m_clk>;
 		qcom,ce-opp-freq = <171430000>;
-		qcom,qsee-reentrancy-support = <2>;
+        qcom,qsee-reentrancy-support = <2>;
 	};
 
 	qcom,qbt1000 {

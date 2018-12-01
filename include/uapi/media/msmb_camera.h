@@ -48,9 +48,7 @@
 #define MSM_CAMERA_SUBDEV_SENSOR_INIT  14
 #define MSM_CAMERA_SUBDEV_OIS          15
 #define MSM_CAMERA_SUBDEV_FLASH        16
-#define MSM_CAMERA_SUBDEV_IR_LED       17
-#define MSM_CAMERA_SUBDEV_IR_CUT       18
-#define MSM_CAMERA_SUBDEV_EXT          19
+#define MSM_CAMERA_SUBDEV_EXT          17
 
 #if 1 /* CONFIG_MACH_LGE */
 #define MSM_CAMERA_SUBDEV_PROXY        18

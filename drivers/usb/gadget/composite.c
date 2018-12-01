@@ -32,14 +32,6 @@
 #define SSUSB_GADGET_VBUS_DRAW_UNITS 8
 #define HSUSB_GADGET_VBUS_DRAW_UNITS 2
 
-/*
- * Based on enumerated USB speed, draw power with set_config and resume
- * HSUSB: 500mA, SSUSB: 900mA
- */
-#define USB_VBUS_DRAW(speed)\
-	(speed == USB_SPEED_SUPER ?\
-	SSUSB_GADGET_VBUS_DRAW : CONFIG_USB_GADGET_VBUS_DRAW)
-
 static bool enable_l1_for_hs;
 module_param(enable_l1_for_hs, bool, S_IRUGO | S_IWUSR);
 MODULE_PARM_DESC(enable_l1_for_hs, "Enable support for L1 LPM for HS devices");
@@ -766,6 +758,7 @@ static int set_config(struct usb_composite_dev *cdev,
 	struct usb_gadget	*gadget = cdev->gadget;
 	struct usb_configuration *c = NULL;
 	int			result = -EINVAL;
+	unsigned		power = gadget_is_otg(gadget) ? 8 : 100;
 	int			tmp;
 
 	/*
@@ -879,8 +872,14 @@ static int set_config(struct usb_composite_dev *cdev,
 		}
 	}
 
+	/* Allow 900mA to draw with Super-Speed */
+	if (gadget->speed == USB_SPEED_SUPER)
+		power = SSUSB_GADGET_VBUS_DRAW;
+	else
+		power = CONFIG_USB_GADGET_VBUS_DRAW;
+
 done:
-	usb_gadget_vbus_draw(gadget, USB_VBUS_DRAW(gadget->speed));
+	usb_gadget_vbus_draw(gadget, power);
 	if (result >= 0 && cdev->delayed_status)
 		result = USB_GADGET_DELAYED_STATUS;
 	return result;
@@ -1682,9 +1681,7 @@ composite_setup(struct usb_gadget *gadget, const struct usb_ctrlrequest *ctrl)
 			if (!gadget_is_dualspeed(gadget) ||
 			    gadget->speed >= USB_SPEED_SUPER)
 				break;
-			spin_lock(&cdev->lock);
 			device_qual(cdev);
-			spin_unlock(&cdev->lock);
 			value = min_t(int, w_length,
 				sizeof(struct usb_qualifier_descriptor));
 			break;
@@ -2312,9 +2309,7 @@ composite_suspend(struct usb_gadget *gadget)
 
 	cdev->suspended = 1;
 	spin_unlock_irqrestore(&cdev->lock, flags);
-#ifdef CONFIG_LGE_USB_G_ANDROID
-	usb_gadget_vbus_draw(gadget, 100);
-#else
+#ifndef CONFIG_LGE_USB_G_ANDROID
 	usb_gadget_vbus_draw(gadget, 2);
 #endif
 }
@@ -2324,6 +2319,7 @@ composite_resume(struct usb_gadget *gadget)
 {
 	struct usb_composite_dev	*cdev = get_gadget_data(gadget);
 	struct usb_function		*f;
+	u16				maxpower;
 	int ret;
 	unsigned long			flags;
 
@@ -2356,7 +2352,10 @@ composite_resume(struct usb_gadget *gadget)
 				f->resume(f);
 		}
 
-		usb_gadget_vbus_draw(gadget, USB_VBUS_DRAW(gadget->speed));
+		maxpower = cdev->config->MaxPower;
+
+		usb_gadget_vbus_draw(gadget, maxpower ?
+			maxpower : CONFIG_USB_GADGET_VBUS_DRAW);
 	}
 
 	spin_unlock_irqrestore(&cdev->lock, flags);

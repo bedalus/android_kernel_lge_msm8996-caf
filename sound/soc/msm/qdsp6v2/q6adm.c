@@ -26,7 +26,6 @@
 #include <sound/msm-dts-eagle.h>
 #include "msm-dts-srs-tm-config.h"
 #include <sound/adsp_err.h>
-
 #define LVVE
 #if defined(LVVE)
 #define VPM_TX_SM_LVVEFQ    (0x1000BFF0)

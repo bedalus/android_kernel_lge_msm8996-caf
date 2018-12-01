@@ -3533,9 +3533,9 @@ out_mutex:
 	mutex_unlock(&inode->i_mutex);
 	return ret;
 #else
-	/*
-	 * Disabled as per b/28760453
-	 */
+    /*
+     * Disabled as per b/28760453
+     */
 	return -EOPNOTSUPP;
 #endif
 }

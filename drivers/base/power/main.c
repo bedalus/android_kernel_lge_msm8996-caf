@@ -33,13 +33,14 @@
 #include <linux/cpuidle.h>
 #include <linux/timer.h>
 #include <linux/wakeup_reason.h>
+
+#include "../base.h"
+#include "power.h"
+
 #if defined(CONFIG_MACH_LGE)
 #include <linux/module.h>
 #include <linux/debugfs.h>
 #endif
-
-#include "../base.h"
-#include "power.h"
 
 typedef int (*pm_callback_t)(struct device *);
 
@@ -956,9 +957,9 @@ static void async_resume(void *data, async_cookie_t cookie)
 {
 	struct device *dev = (struct device *)data;
 	int error;
+
 #if defined(CONFIG_MACH_LGE)
 	ktime_t stime, etime;
-
 	if (nsec64_resume_spend)
 		stime = ktime_get();
 #endif
@@ -1047,7 +1048,6 @@ void dpm_resume(pm_message_t state)
 #if defined(CONFIG_MACH_LGE)
 			ktime_t stime, etime;
 #endif
-
 			mutex_unlock(&dpm_list_mtx);
 
 #if defined(CONFIG_MACH_LGE)

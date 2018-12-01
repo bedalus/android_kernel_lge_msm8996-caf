@@ -76,7 +76,6 @@ static void sync_inodes_one_sb(struct super_block *sb, void *arg)
 	if (!(sb->s_flags & MS_RDONLY))
 		sync_inodes_sb(sb);
 }
-
 #ifdef CONFIG_MACH_LGE
 static void check_and_sync_inodes_one_sb(struct super_block *sb, void *arg)
 {
@@ -91,7 +90,6 @@ static void check_and_sync_inodes_one_sb(struct super_block *sb, void *arg)
 	}
 }
 #endif
-
 static void sync_fs_one_sb(struct super_block *sb, void *arg)
 {
 	if (!(sb->s_flags & MS_RDONLY) && sb->s_op->sync_fs)
@@ -132,7 +130,6 @@ SYSCALL_DEFINE0(sync)
 		laptop_sync_completion();
 	return 0;
 }
-
 #ifdef CONFIG_MACH_LGE
 int check_and_sync()
 {

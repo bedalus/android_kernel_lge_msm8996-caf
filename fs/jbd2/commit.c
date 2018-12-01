@@ -743,7 +743,7 @@ start_journal_io:
 #ifdef CONFIG_MACH_LGE
 				submit_bh(WRITE_SYNC | REQ_PREEMPT, bh);
 #else
-				submit_bh(WRITE_SYNC, bh);
+				submit_bh(WRITE_SYNC , bh);
 #endif
 			}
 			cond_resched();

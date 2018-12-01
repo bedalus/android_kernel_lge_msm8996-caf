@@ -2264,7 +2264,6 @@ static const struct soc_enum msm_route_ec_ref_rx_enum[] = {
 	SOC_ENUM_SINGLE_EXT(ARRAY_SIZE(ec_ref_rx), ec_ref_rx),
 };
 #endif
-
 static const struct snd_kcontrol_new ext_ec_ref_mux_ul1 =
 	SOC_DAPM_ENUM_EXT("AUDIO_REF_EC_UL1 MUX Mux",
 		msm_route_ec_ref_rx_enum[0],
@@ -6546,9 +6545,6 @@ static int msm_audio_sound_focus_derive_port_id(struct snd_kcontrol *kcontrol,
 	} else if (!strcmp(kcontrol->id.name + strlen(prefix),
 					"TERT_MI2S")) {
 		*port_id = AFE_PORT_ID_TERTIARY_MI2S_TX;
-	} else if (!strcmp(kcontrol->id.name + strlen(prefix),
-					"QUATERNARY_MI2S")) {
-		*port_id = AFE_PORT_ID_QUATERNARY_MI2S_TX;
 	} else {
 		pr_err("%s: mixer ctl name=%s, could not derive valid port id\n",
 			__func__, kcontrol->id.name);
@@ -6752,21 +6748,6 @@ static const struct snd_kcontrol_new msm_source_tracking_controls[] = {
 		.name	= "Source Tracking Audio Tx TERT_MI2S",
 		.info	= msm_source_tracking_info,
 		.get	= msm_audio_source_tracking_get,
-	},
-	{
-		.access = SNDRV_CTL_ELEM_ACCESS_READWRITE,
-		.iface  = SNDRV_CTL_ELEM_IFACE_MIXER,
-		.name   = "Sound Focus Audio Tx QUATERNARY_MI2S",
-		.info   = msm_sound_focus_info,
-		.get    = msm_audio_sound_focus_get,
-		.put    = msm_audio_sound_focus_put,
-	},
-	{
-		.access = SNDRV_CTL_ELEM_ACCESS_READ,
-		.iface  = SNDRV_CTL_ELEM_IFACE_MIXER,
-		.name   = "Source Tracking Audio Tx QUATERNARY_MI2S",
-		.info   = msm_source_tracking_info,
-		.get    = msm_audio_source_tracking_get,
 	},
 };
 

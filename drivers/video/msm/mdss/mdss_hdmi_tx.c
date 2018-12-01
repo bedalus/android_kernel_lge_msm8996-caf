@@ -52,7 +52,7 @@
 #endif
 
 #define HDMI_TX_EVT_STR(x) #x
-#define DEFAULT_VIDEO_RESOLUTION HDMI_VFRMT_1920x1080p60_16_9
+#define DEFAULT_VIDEO_RESOLUTION HDMI_VFRMT_640x480p60_4_3
 #define DEFAULT_HDMI_PRIMARY_RESOLUTION HDMI_VFRMT_1920x1080p60_16_9
 
 #ifdef CONFIG_SLIMPORT_COMMON
@@ -422,6 +422,7 @@ static inline void hdmi_tx_send_cable_notification(
 	schedule_work(&hdmi_ctrl->cable_notify_work);
 } /* hdmi_tx_send_cable_notification */
 
+#define AUDIO_BLOCK_FOR_DVI
 static inline void hdmi_tx_set_audio_switch_node(
 	struct hdmi_tx_ctrl *hdmi_ctrl, int val)
 {
@@ -706,9 +707,6 @@ static int hdmi_tx_update_pixel_clk(struct hdmi_tx_ctrl *hdmi_ctrl)
 	}
 
 	power_data->clk_config->rate = pinfo->clk_rate;
-
-	if (pinfo->out_format == MDP_Y_CBCR_H2V2)
-		power_data->clk_config->rate /= 2;
 
 	DEV_DBG("%s: rate %ld\n", __func__, power_data->clk_config->rate);
 
@@ -1387,7 +1385,7 @@ static int hdmi_tx_sysfs_create(struct hdmi_tx_ctrl *hdmi_ctrl,
 		return rc;
 	}
 	hdmi_ctrl->kobj = &fbi->dev->kobj;
-	DEV_DBG("%s: sysfs group %pK\n", __func__, hdmi_ctrl->kobj);
+	DEV_DBG("%s: sysfs group %p\n", __func__, hdmi_ctrl->kobj);
 
 	return 0;
 } /* hdmi_tx_sysfs_create */
@@ -1551,7 +1549,7 @@ static void hdmi_tx_hdcp_cb_work(struct work_struct *work)
 			DEV_DBG("%s: Reauthenticating\n", __func__);
 
 			if (hdmi_tx_is_encryption_set(hdmi_ctrl) ||
-				!hdmi_tx_is_stream_shareable(hdmi_ctrl)) {
+			!hdmi_tx_is_stream_shareable(hdmi_ctrl)) {
 				hdmi_tx_set_audio_switch_node(hdmi_ctrl, 0);
 				rc = hdmi_tx_config_avmute(hdmi_ctrl, true);
 			}
@@ -1562,7 +1560,6 @@ static void hdmi_tx_hdcp_cb_work(struct work_struct *work)
 				DEV_ERR("%s: HDCP reauth failed. rc=%d\n",
 					__func__, rc);
 		} else {
-			hdmi_tx_set_audio_switch_node(hdmi_ctrl, 0);
 			DEV_DBG("%s: Not reauthenticating. Cable not conn\n",
 				__func__);
 		}
@@ -2144,7 +2141,7 @@ static int hdmi_tx_read_sink_info(struct hdmi_tx_ctrl *hdmi_ctrl)
 error:
 #ifdef CONFIG_SLIMPORT_CTYPE
 	if (status)
-		hdmi_edid_reset_parser(hdmi_ctrl->feature_data[HDMI_TX_FEAT_EDID]);
+		hdmi_edid_reset_parser(data);
 #endif
 	return status;
 } /* hdmi_tx_read_sink_info */
@@ -3074,8 +3071,8 @@ static int hdmi_tx_power_off(struct hdmi_tx_ctrl *hdmi_ctrl)
 	if (hdmi_ctrl->panel_ops.off)
 		hdmi_ctrl->panel_ops.off(pdata);
 
-	hdmi_ctrl->panel_power_on = false;
 	hdmi_tx_core_off(hdmi_ctrl);
+	hdmi_ctrl->panel_power_on = false;
 
 	if (hdmi_ctrl->hpd_off_pending || hdmi_ctrl->panel_suspend)
 		hdmi_tx_hpd_off(hdmi_ctrl);
@@ -3722,9 +3719,6 @@ static void hdmi_tx_update_fps(struct hdmi_tx_ctrl *hdmi_ctrl)
 		return;
 	}
 
-	DEV_DBG("%s: current fps %d, new fps %d\n", __func__,
-		pinfo->current_fps, hdmi_ctrl->dynamic_fps);
-
 	if (hdmi_ctrl->dynamic_fps == pinfo->current_fps) {
 		DEV_DBG("%s: Panel is already at this FPS: %d\n",
 			__func__, hdmi_ctrl->dynamic_fps);
@@ -3990,7 +3984,6 @@ static int hdmi_tx_event_handler(struct mdss_panel_data *panel_data,
 	/* UPDATE FPS is called from atomic context */
 	if (event == MDSS_EVENT_PANEL_UPDATE_FPS) {
 		hdmi_ctrl->dynamic_fps = (u32) (unsigned long)arg;
-		DEV_DBG("%s: fps %d\n", __func__, hdmi_ctrl->dynamic_fps);
 		queue_work(hdmi_ctrl->workq, &hdmi_ctrl->fps_work);
 		return rc;
 	}
@@ -4094,7 +4087,7 @@ static int hdmi_tx_init_resource(struct hdmi_tx_ctrl *hdmi_ctrl)
 			DEV_DBG("%s: '%s' remap failed or not available\n",
 				__func__, hdmi_tx_io_name(i));
 		}
-		DEV_INFO("%s: '%s': start = 0x%pK, len=0x%x\n", __func__,
+		DEV_INFO("%s: '%s': start = 0x%p, len=0x%x\n", __func__,
 			hdmi_tx_io_name(i), pdata->io[i].base,
 			pdata->io[i].len);
 	}
@@ -4597,7 +4590,7 @@ static int hdmi_tx_get_dt_data(struct platform_device *pdev,
 
 	data = of_get_property(pdev->dev.of_node, "qcom,display-id", &len);
 	if (!data || len <= 0)
-		pr_err("%s:%d Unable to read qcom,display-id, data=%pK,len=%d\n",
+		pr_err("%s:%d Unable to read qcom,display-id, data=%p,len=%d\n",
 			__func__, __LINE__, data, len);
 	else
 		snprintf(hdmi_ctrl->panel_data.panel_info.display_id,
@@ -4680,10 +4673,6 @@ static int hdmi_tx_probe(struct platform_device *pdev)
 			hdmi_ctrl->mdss_util->panel_intf_status(DISPLAY_1,
 					MDSS_PANEL_INTF_HDMI) ? true : false;
 	}
-
-	hdmi_ctrl->panel_data.panel_info.cont_splash_enabled =
-		hdmi_ctrl->mdss_util->panel_intf_status(DISPLAY_1,
-			MDSS_PANEL_INTF_HDMI) ? true : false;
 
 	hdmi_tx_hw.irq_info = mdss_intr_line();
 	if (hdmi_tx_hw.irq_info == NULL) {

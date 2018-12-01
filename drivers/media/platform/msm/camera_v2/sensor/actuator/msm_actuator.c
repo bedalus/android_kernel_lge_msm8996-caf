@@ -2113,7 +2113,7 @@ static int32_t msm_actuator_power_up(struct msm_actuator_ctrl_t *a_ctrl)
 			a_ctrl->gconf->gpio_num_info->valid[gpio] == 1) {
 			rc = msm_camera_request_gpio_table(
 				a_ctrl->gconf->cam_gpio_req_tbl,
-				a_ctrl->gconf->cam_gpio_req_tbl_size, 1, 0); //LG Change
+				a_ctrl->gconf->cam_gpio_req_tbl_size, 1, 0);
 			if (rc < 0) {
 				pr_err("ERR:%s:Failed in selecting state for actuator: %d\n",
 					__func__, rc);
@@ -2257,14 +2257,16 @@ static int32_t msm_actuator_platform_probe(struct platform_device *pdev)
 {
 	int32_t rc = 0;
 	struct msm_camera_cci_client *cci_client = NULL;
-	struct msm_actuator_ctrl_t *msm_actuator_t = NULL;
-	struct msm_actuator_vreg *vreg_cfg;
 #ifdef CONFIG_LG_OIS
 	struct msm_camera_cci_client *cci_eeprom_client = NULL;
 	struct msm_camera_power_ctrl_t *power_info = NULL;
 	struct msm_eeprom_board_info *eb_info = NULL;
 	uint16_t vcm_ver = -1;
+	struct msm_actuator_vreg *vreg_cfg;
+#else
+	struct msm_actuator_vreg *vreg_cfg;
 #endif
+	struct msm_actuator_ctrl_t *msm_actuator_t = NULL;
 
 	CDBG("Enter\n");
 

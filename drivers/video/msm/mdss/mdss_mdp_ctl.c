@@ -32,14 +32,6 @@
 #include "lge/lge_mdss_aod.h"
 #endif
 
-#if defined(CONFIG_LGE_PM_TRITON)
-#include <linux/lib_triton.h>
-#ifdef FPS_BOOST
-u64 last_commit_ms;
-EXPORT_SYMBOL(last_commit_ms);
-#endif
-#endif
-
 #define MDSS_MDP_QSEED3_VER_DOWNSCALE_LIM 2
 #define NUM_MIXERCFG_REGS 3
 #define MDSS_MDP_WB_OUTPUT_BPP	3
@@ -700,8 +692,7 @@ int mdss_mdp_get_panel_params(struct mdss_mdp_pipe *pipe,
 			*fps = pinfo->panel_max_fps;
 			*v_total = pinfo->panel_max_vtotal;
 		} else {
-			*fps = mdss_panel_get_framerate(pinfo,
-					FPS_RESOLUTION_HZ);
+			*fps = mdss_panel_get_framerate(pinfo);
 			*v_total = mdss_panel_get_vtotal(pinfo);
 		}
 		*xres = get_panel_width(mixer->ctl);
@@ -839,8 +830,7 @@ static u32 mdss_mdp_get_vbp_factor(struct mdss_mdp_ctl *ctl)
 		return 0;
 
 	pinfo = &ctl->panel_data->panel_info;
-	fps = mdss_panel_get_framerate(pinfo,
-			FPS_RESOLUTION_HZ);
+	fps = mdss_panel_get_framerate(pinfo);
 	v_total = mdss_panel_get_vtotal(pinfo);
 	vbp = pinfo->lcdc.v_back_porch + pinfo->lcdc.v_pulse_width;
 	vbp += pinfo->prg_fet;
@@ -888,8 +878,7 @@ static u32 __calc_prefill_line_time_us(struct mdss_mdp_ctl *ctl)
 		return 0;
 
 	pinfo = &ctl->panel_data->panel_info;
-	fps = mdss_panel_get_framerate(pinfo,
-			FPS_RESOLUTION_HZ);
+	fps = mdss_panel_get_framerate(pinfo);
 	v_total = mdss_panel_get_vtotal(pinfo);
 	vbp = pinfo->lcdc.v_back_porch + pinfo->lcdc.v_pulse_width;
 	vbp += pinfo->prg_fet;
@@ -946,8 +935,7 @@ static u32 mdss_mdp_calc_prefill_line_time(struct mdss_mdp_ctl *ctl,
 		return -EINVAL;
 
 	pinfo = &ctl->panel_data->panel_info;
-	fps = mdss_panel_get_framerate(pinfo,
-		FPS_RESOLUTION_HZ);
+	fps = mdss_panel_get_framerate(pinfo);
 	v_total = mdss_panel_get_vtotal(pinfo);
 
 	/* calculate the minimum prefill */
@@ -1249,8 +1237,7 @@ static void mdss_mdp_perf_calc_mixer(struct mdss_mdp_mixer *mixer,
 				fps = pinfo->panel_max_fps;
 				v_total = pinfo->panel_max_vtotal;
 			} else {
-				fps = mdss_panel_get_framerate(pinfo,
-						FPS_RESOLUTION_HZ);
+				fps = mdss_panel_get_framerate(pinfo);
 				v_total = mdss_panel_get_vtotal(pinfo);
 			}
 		} else {
@@ -5238,8 +5225,10 @@ int mdss_mdp_ctl_update_fps(struct mdss_mdp_ctl *ctl)
 		(pinfo->dfps_update ==
 			DFPS_IMMEDIATE_MULTI_MODE_HFP_CALC_CLK) ||
 		pinfo->dfps_update == DFPS_IMMEDIATE_CLK_UPDATE_MODE) {
-		new_fps = mdss_panel_get_framerate(pinfo,
-				FPS_RESOLUTION_DEFAULT);
+		if (pinfo->type == DTV_PANEL)
+			new_fps = pinfo->lcdc.frame_rate;
+		else
+			new_fps = mdss_panel_get_framerate(pinfo);
 	} else {
 		new_fps = pinfo->new_fps;
 	}
@@ -5393,7 +5382,13 @@ static void mdss_mdp_force_border_color(struct mdss_mdp_ctl *ctl)
 	if (ctl->mixer_right)
 		ctl->mixer_right->params_changed++;
 }
-
+#if (defined CONFIG_LGE_PM_TRITON)
+#include <linux/lib_triton.h>
+#ifdef FPS_BOOST
+u64 last_commit_ms;
+EXPORT_SYMBOL(last_commit_ms);
+#endif
+#endif
 int mdss_mdp_display_commit(struct mdss_mdp_ctl *ctl, void *arg,
 	struct mdss_mdp_commit_cb *commit_cb)
 {
@@ -5678,7 +5673,7 @@ int mdss_mdp_display_commit(struct mdss_mdp_ctl *ctl, void *arg,
 		pr_warn("ctl %d error displaying frame\n", ctl->num);
 
 	ctl->play_cnt++;
-#if defined(CONFIG_LGE_PM_TRITON) && defined(FPS_BOOST)
+#if (defined CONFIG_LGE_PM_TRITON && defined FPS_BOOST)
 	last_commit_ms = ktime_to_ms(ktime_get());
 #endif
 	ATRACE_END("flush_kickoff");

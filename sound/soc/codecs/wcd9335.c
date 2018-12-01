@@ -10820,7 +10820,7 @@ static int tasha_get_channel_map(struct snd_soc_dai *dai,
 	case AIF4_PB:
 	case AIF_MIX1_PB:
 		if (!rx_slot || !rx_num) {
-			pr_err("%s: Invalid rx_slot %pK or rx_num %pK\n",
+			pr_err("%s: Invalid rx_slot %p or rx_num %p\n",
 				 __func__, rx_slot, rx_num);
 			return -EINVAL;
 		}
@@ -10839,7 +10839,7 @@ static int tasha_get_channel_map(struct snd_soc_dai *dai,
 	case AIF4_MAD_TX:
 	case AIF4_VIFEED:
 		if (!tx_slot || !tx_num) {
-			pr_err("%s: Invalid tx_slot %pK or tx_num %pK\n",
+			pr_err("%s: Invalid tx_slot %p or tx_num %p\n",
 				 __func__, tx_slot, tx_num);
 			return -EINVAL;
 		}
@@ -10877,7 +10877,7 @@ static int tasha_set_channel_map(struct snd_soc_dai *dai,
 	core = dev_get_drvdata(dai->codec->dev->parent);
 
 	if (!tx_slot || !rx_slot) {
-		pr_err("%s: Invalid tx_slot=%pK, rx_slot=%pK\n",
+		pr_err("%s: Invalid tx_slot=%p, rx_slot=%p\n",
 			__func__, tx_slot, rx_slot);
 		return -EINVAL;
 	}
@@ -11594,21 +11594,6 @@ static struct snd_soc_dai_driver tasha_i2s_dai[] = {
 			.rate_min = 8000,
 			.channels_min = 1,
 			.channels_max = 4,
-		},
-		.ops = &tasha_dai_ops,
-	},
-	{
-		.name = "tasha_mad1",
-		.id = AIF4_MAD_TX,
-		.capture = {
-			.stream_name = "AIF4 MAD TX",
-			.rates = SNDRV_PCM_RATE_16000 | SNDRV_PCM_RATE_48000 |
-				SNDRV_PCM_RATE_192000 | SNDRV_PCM_RATE_384000,
-			.formats = TASHA_FORMATS_S16_S24_S32_LE,
-			.rate_min = 16000,
-			.rate_max = 384000,
-			.channels_min = 1,
-			.channels_max = 1,
 		},
 		.ops = &tasha_dai_ops,
 	},
@@ -13158,7 +13143,7 @@ static int tasha_codec_probe(struct snd_soc_codec *codec)
 	}
 	/* Class-H Init*/
 	wcd_clsh_init(&tasha->clsh_d);
-#if 0
+#if 0	
 	/* Default HPH Mode to Class-H HiFi */
 	tasha->hph_mode = CLS_H_HIFI;
 #else //LG modification, LG default mode is set to CLS_H_LP
@@ -13611,7 +13596,7 @@ static int tasha_swrm_clock(void *handle, bool enable)
 					0x10, 0x10);
 		}
 	}
-	dev_dbg(tasha->dev, "%s: swrm clock users %d\n",
+	dev_info(tasha->dev, "%s: swrm clock users %d\n",
 		__func__, tasha->swr_clk_users);
 	mutex_unlock(&tasha->swr_clk_lock);
 	return 0;

@@ -1742,6 +1742,14 @@ int mmc_interrupt_hpi(struct mmc_card *card)
 	} while (!err);
 
 out:
+#ifdef CONFIG_MACH_LGE
+	/* LGE_CHANGE, 2015-09-23, H1-BSP-FS@lge.com
+	 * add debug code
+	 */
+	if (err) {
+		pr_err("%s: mmc_interrupt_hpi() failed. err: (%d)\n", mmc_hostname(card->host), err);
+	}
+#endif
 	mmc_release_host(card->host);
 	return err;
 }
@@ -1907,16 +1915,16 @@ void mmc_set_data_timeout(struct mmc_data *data, const struct mmc_card *card)
 			 */
 			limit_us = 3000000;
 		else
-#ifdef CONFIG_MACH_LGE
+			#ifdef CONFIG_MACH_LGE
 			/* LGE_CHANGE, 2015-09-23, H1-BSP-FS@lge.com
 			 * Although we already applied enough time,
 			 * timeout-error occurs until now with several-ultimate-crappy-memory.
 			 * So, we give more time than before.
 			 */
 			limit_us = 300000;
-#else
+			#else
 			limit_us = 100000;
-#endif
+			#endif
 
 		/*
 		 * SDHC cards always use these fixed values.
@@ -2737,7 +2745,17 @@ void mmc_power_up(struct mmc_host *host, u32 ocr)
 void mmc_power_off(struct mmc_host *host)
 {
 	if (host->ios.power_mode == MMC_POWER_OFF)
+	#ifdef CONFIG_MACH_LGE
+	/* LGE_CHANGE, 2015-09-23, H1-BSP-FS@lge.com
+	 * If it is already power-off, skip below.
+	 */
+	{
+		printk(KERN_INFO "[LGE][MMC][%-18s( )] host->index:%d, already power-off, skip below\n", __func__, host->index);
 		return;
+	}
+	#else
+		return;
+	#endif
 
 	mmc_host_clk_hold(host);
 
@@ -2912,7 +2930,8 @@ static void _mmc_detect_change(struct mmc_host *host, unsigned long delay,
 		pm_wakeup_event(mmc_dev(host), 5000);
 
 #ifdef CONFIG_MACH_LGE
-	if((host->caps & MMC_CAP_NONREMOVABLE) || !is_damaged_sd) {
+	if((host->caps & MMC_CAP_NONREMOVABLE) || !is_damaged_sd)
+	{
 		host->detect_change = 1;
 		mmc_schedule_delayed_work(&host->detect, delay);
 	}
@@ -3609,7 +3628,14 @@ int mmc_can_reset(struct mmc_card *card)
 		rst_n_function = card->ext_csd.rst_n_function;
 		if ((rst_n_function & EXT_CSD_RST_N_EN_MASK) !=
 		    EXT_CSD_RST_N_ENABLED)
+		#ifdef CONFIG_MACH_LGE
+		{
+			printk("%s: mmc, MMC_CAP_HW_RESET, rst_n_function=0x%02x\n", __func__, rst_n_function);
 			return 0;
+		}
+		#else
+			return 0;
+		#endif
 	}
 	return 1;
 }
@@ -3767,6 +3793,10 @@ int _mmc_detect_card_removed(struct mmc_host *host)
 		pr_debug("%s: card remove detected\n", mmc_hostname(host));
 	}
 
+	#ifdef CONFIG_MACH_LGE
+	printk(KERN_INFO "[LGE][MMC][%-18s( )] end, mmc%d, return %d\n", __func__, host->index, ret);
+	#endif
+
 	return ret;
 }
 
@@ -3810,9 +3840,15 @@ void mmc_rescan(struct work_struct *work)
 	unsigned long flags;
 	struct mmc_host *host =
 		container_of(work, struct mmc_host, detect.work);
+
 #ifdef CONFIG_MACH_LGE
+	/* LGE_CHANGE, 2015-09-23, H1-BSP-FS@lge.com
+	* Adding Print
+	*/
+	//printk(KERN_INFO "[LGE][MMC][%-18s( ) START!] mmc%d\n", __func__, host->index);
 	int err = 0;
 #endif
+
 
 	if (host->trigger_card_event && host->ops->card_event) {
 		host->ops->card_event(host);
@@ -3879,7 +3915,8 @@ void mmc_rescan(struct work_struct *work)
 	mmc_release_host(host);
 
 #ifdef CONFIG_MACH_LGE
-	if (err == -EIO && !(host->caps & MMC_CAP_NONREMOVABLE)) {
+	if(err == -EIO && !(host->caps & MMC_CAP_NONREMOVABLE))
+	{
 		printk(KERN_INFO "[LGE][MMC][%-18s( )] mmc%d: SDcard is damaged\n", __func__, host->index);
 		is_damaged_sd = 1;
 	}

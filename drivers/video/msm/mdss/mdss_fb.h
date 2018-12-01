@@ -255,7 +255,6 @@ struct msm_mdp_interface {
 				do_div(out, 2 * max_bright);\
 				} while (0)
 #endif
-
 struct mdss_fb_file_info {
 	struct file *file;
 	struct list_head list;
@@ -269,10 +268,10 @@ struct msm_fb_backup_type {
 
 #if defined(CONFIG_LGE_PP_AD_SUPPORTED)
 struct msm_fb_ad_info {
-	int is_ad_on;
-	int user_br_lvl;
-	int ad_weight;
-	int old_ad_br_lvl;
+    int is_ad_on;
+    int user_br_lvl;
+    int ad_weight;
+    int old_ad_br_lvl;
 };
 #endif
 

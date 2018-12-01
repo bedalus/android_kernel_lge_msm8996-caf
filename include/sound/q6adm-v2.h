@@ -167,7 +167,7 @@ int adm_get_sound_focus(int port_id, int copp_idx,
 			struct sound_focus_param *soundFocusData);
 int adm_get_source_tracking(int port_id, int copp_idx,
 			    struct source_tracking_param *sourceTrackingData);
-
+				
 int programable_channel_mixer(int port_id, int copp_idx, int session_id,
 		int session_type, struct msm_pcm_channel_mux *ch_mux,
 		int num_ch);

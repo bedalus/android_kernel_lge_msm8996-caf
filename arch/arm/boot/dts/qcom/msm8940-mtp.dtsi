@@ -14,9 +14,5 @@
 #include "msm8937-mtp.dtsi"
 #include "msm8940-pinctrl.dtsi"
 
-&mem_client_3_size {
-	qcom,peripheral-size = <0x500000>;
-};
-
 &soc {
 };

@@ -1045,7 +1045,7 @@ static void mdss_dsi_8996_phy_config(struct mdss_dsi_ctrl_pdata *ctrl)
 #ifdef CONFIG_LGE_DISPLAY_BL_EXTENDED
 		MIPI_OUTP(base + 0x14, 0x00ff);    /* fixed */
 #else
-		MIPI_OUTP(base + 0x14, 0x0088);	/* fixed */
+		MIPI_OUTP(base + 0x14, 0x0088);    /* fixed */
 #endif
 
 		/* phy timing, 8 * 5 */
@@ -1112,15 +1112,15 @@ static void mdss_dsi_phy_regulator_ctrl(struct mdss_dsi_ctrl_pdata *ctrl,
 				mdss_dsi_20nm_phy_regulator_enable(ctrl);
 				break;
 			default:
-				/*
-				 * For dual dsi case, do not reconfigure dsi phy
-				 * regulator if the other dsi controller is still
-				 * active.
-				 */
-				if (!mdss_dsi_is_hw_config_dual(sdata) ||
-					 (other_ctrl && (!other_ctrl->is_phyreg_enabled
-					 || other_ctrl->mmss_clamp)))
-					mdss_dsi_28nm_phy_regulator_enable(ctrl);
+			/*
+			 * For dual dsi case, do not reconfigure dsi phy
+			 * regulator if the other dsi controller is still
+			 * active.
+			 */
+			if (!mdss_dsi_is_hw_config_dual(sdata) ||
+				(other_ctrl && (!other_ctrl->is_phyreg_enabled
+						|| other_ctrl->mmss_clamp)))
+				mdss_dsi_28nm_phy_regulator_enable(ctrl);
 				break;
 			}
 		}

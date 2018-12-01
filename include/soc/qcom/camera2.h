@@ -109,10 +109,10 @@ struct msm_camera_power_ctrl_t {
 	struct msm_pinctrl_info pinctrl_info;
 	uint8_t cam_pinctrl_status;
 	size_t clk_info_size;
-/* LGE change */
-	bool isDualMode;
-	int cameraID;
-/* LGE change */
+#if 1
+		bool isDualMode;
+		int cameraID;
+#endif
 
 };
 

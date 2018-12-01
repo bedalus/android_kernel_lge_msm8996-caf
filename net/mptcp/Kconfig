@@ -2,11 +2,11 @@
 # MPTCP configuration
 #
 config MPTCP
-	bool "MPTCP protocol"
-	depends on (IPV6=y || IPV6=n)
-	---help---
-	  This replaces the normal TCP stack with a Multipath TCP stack,
-	  able to use several paths at once.
+        bool "MPTCP protocol"
+        depends on (IPV6=y || IPV6=n)
+        ---help---
+          This replaces the normal TCP stack with a Multipath TCP stack,
+          able to use several paths at once.
 
 menuconfig MPTCP_PM_ADVANCED
 	bool "MPTCP: advanced path-manager control"
@@ -33,7 +33,7 @@ config MPTCP_NDIFFPORTS
 
 config MPTCP_BINDER
 	tristate "MPTCP Binder"
-	depends on MPTCP=y
+	depends on (MPTCP=y)
 	---help---
 	  This path-management module works like ndiffports, and adds the sysctl
 	  option to set the gateway (and/or path to) per each additional subflow
@@ -59,6 +59,8 @@ choice
 
 endchoice
 
+endif
+
 config DEFAULT_MPTCP_PM
 	string
 	default "default" if DEFAULT_DUMMY
@@ -66,8 +68,6 @@ config DEFAULT_MPTCP_PM
 	default "ndiffports" if DEFAULT_NDIFFPORTS
 	default "binder" if DEFAULT_BINDER
 	default "default"
-
-endif
 
 menuconfig MPTCP_SCHED_ADVANCED
 	bool "MPTCP: advanced scheduler control"
@@ -80,7 +80,7 @@ if MPTCP_SCHED_ADVANCED
 
 config MPTCP_ROUNDROBIN
 	tristate "MPTCP Round-Robin"
-	depends on MPTCP=y
+	depends on (MPTCP=y)
 	---help---
 	  This is a very simple round-robin scheduler. Probably has bad performance
 	  but might be interesting for researchers.
@@ -108,7 +108,7 @@ endif
 
 config DEFAULT_MPTCP_SCHED
 	string
-	depends on MPTCP=y
+	depends on (MPTCP=y)
 	default "default" if DEFAULT_SCHEDULER
 	default "roundrobin" if DEFAULT_ROUNDROBIN
 	default "default"

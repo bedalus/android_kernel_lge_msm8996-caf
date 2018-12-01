@@ -599,7 +599,7 @@ struct reg_bus_client *mdss_reg_bus_vote_client_create(char *client_name)
 	strlcpy(client->name, client_name, MAX_CLIENT_NAME_LEN);
 	client->usecase_ndx = VOTE_INDEX_DISABLE;
 	client->id = id;
-	pr_debug("bus vote client %s created:%pK id :%d\n", client_name,
+	pr_debug("bus vote client %s created:%p id :%d\n", client_name,
 		client, id);
 	id++;
 	list_add(&client->list, &mdss_res->reg_bus_clist);
@@ -613,7 +613,7 @@ void mdss_reg_bus_vote_client_destroy(struct reg_bus_client *client)
 	if (!client) {
 		pr_err("reg bus vote: invalid client handle\n");
 	} else {
-		pr_debug("bus vote client %s destroyed:%pK id:%u\n",
+		pr_debug("bus vote client %s destroyed:%p id:%u\n",
 			client->name, client, client->id);
 		mutex_lock(&mdss_res->reg_bus_lock);
 		list_del_init(&client->list);
@@ -1301,12 +1301,10 @@ static void mdss_mdp_vbif_axi_halt(struct mdss_data_type *mdata)
 	__mdss_mdp_reg_access_clk_enable(mdata, false);
 }
 
-int written = 0;
 int mdss_iommu_ctrl(int enable)
 {
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 	int rc = 0;
-	uint32_t reg;
 
 	mutex_lock(&mdp_iommu_ref_cnt_lock);
 	pr_debug("%pS: enable:%d ref_cnt:%d attach:%d hoff:%d\n",
@@ -1319,58 +1317,8 @@ int mdss_iommu_ctrl(int enable)
 		 * finished handoff, as it may still be working with phys addr
 		 */
 		if (!mdata->iommu_attached && !mdata->handoff_pending) {
-			if (mdata->program_scratch_regs) {
-				if (written == 0) {
-
-					MDSS_REG_WRITE(mdata, 0x2000,
-						0x1000000);
-					MDSS_REG_WRITE(mdata, 0x2408,
-						0x1000000);
-					MDSS_REG_WRITE(mdata, 0x2204,
-						0x1000000);
-
-					MDSS_REG_WRITE(mdata, 0x2018, 0x260C3);
-					MDSS_REG_WRITE(mdata, 0x2218, 0x24082);
-					MDSS_REG_WRITE(mdata, 0x2418, 0x28108);
-					reg = readl_relaxed(mdata->mdss_io.base
-						+ 0x2000);
-					reg = readl_relaxed(mdata->mdss_io.base
-						+ 0x2204);
-					reg = readl_relaxed(mdata->mdss_io.base
-						+ 0x2408);
-					MDSS_REG_WRITE(mdata,
-						MDSS_HW_MDSS_SCRATCH_REGISTER_0,
-						0xFEFEFEFE);
-					MDSS_REG_WRITE(mdata,
-						MDSS_HW_MDSS_SCRATCH_REGISTER_1,
-						0xDEADDEAD);
-					pr_err("stopping LK\n");
-					msleep(50);
-				}
-			}
-
 			mdss_bus_rt_bw_vote(true);
 			rc = mdss_smmu_attach(mdata);
-			if (rc == 0) {
-				if ((mdata->program_scratch_regs) &&
-					(written == 0)) {
-					written++;
-					rc = mdss_smmu_map(
-						MDSS_IOMMU_DOMAIN_UNSECURE,
-						(phys_addr_t)0x83401000,
-						(phys_addr_t)0x83401000,
-						(size_t)0x23ff000,
-						IOMMU_READ | IOMMU_NOEXEC);
-					if (rc) {
-						pr_err("Error in mapping\n");
-					} else {
-						pr_err("Successful mapping\n");
-						MDSS_REG_WRITE(mdata,
-						MDSS_HW_MDSS_SCRATCH_REGISTER_0,
-						0x0);
-					}
-				}
-			}
 		}
 		mdata->iommu_ref_cnt++;
 	} else {
@@ -2032,7 +1980,7 @@ static u32 mdss_mdp_res_init(struct mdss_data_type *mdata)
 
 	mdata->iclient = msm_ion_client_create(mdata->pdev->name);
 	if (IS_ERR_OR_NULL(mdata->iclient)) {
-		pr_err("msm_ion_client_create() return error (%pK)\n",
+		pr_err("msm_ion_client_create() return error (%p)\n",
 				mdata->iclient);
 		mdata->iclient = NULL;
 	}
@@ -2740,7 +2688,7 @@ static int mdss_mdp_probe(struct platform_device *pdev)
 	if (rc)
 		pr_debug("unable to map MDSS VBIF non-realtime base\n");
 	else
-		pr_debug("MDSS VBIF NRT HW Base addr=%pK len=0x%x\n",
+		pr_debug("MDSS VBIF NRT HW Base addr=%p len=0x%x\n",
 			mdata->vbif_nrt_io.base, mdata->vbif_nrt_io.len);
 
 	res = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
@@ -2885,7 +2833,6 @@ static int mdss_mdp_probe(struct platform_device *pdev)
 	if (!num_of_display_on)
 		mdss_mdp_footswitch_ctrl_splash(false);
 	else {
-		mdata->program_scratch_regs = true;
 		mdata->handoff_pending = true;
 		/*
 		 * If multiple displays are enabled in LK, ctrl_splash off will
@@ -3563,7 +3510,7 @@ static int mdss_mdp_cdm_addr_setup(struct mdss_data_type *mdata,
 		atomic_set(&head[i].kref.refcount, 0);
 		mutex_init(&head[i].lock);
 		init_completion(&head[i].free_comp);
-		pr_debug("%s: cdm off (%d) = %pK\n", __func__, i, head[i].base);
+		pr_debug("%s: cdm off (%d) = %p\n", __func__, i, head[i].base);
 	}
 
 	mdata->cdm_off = head;
@@ -3630,7 +3577,7 @@ static int mdss_mdp_dsc_addr_setup(struct mdss_data_type *mdata,
 	for (i = 0; i < len; i++) {
 		head[i].num = i;
 		head[i].base = (mdata->mdss_io.base) + dsc_offsets[i];
-		pr_debug("dsc off (%d) = %pK\n", i, head[i].base);
+		pr_debug("dsc off (%d) = %p\n", i, head[i].base);
 	}
 
 	mdata->dsc_off = head;

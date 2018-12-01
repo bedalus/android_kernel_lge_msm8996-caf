@@ -579,6 +579,7 @@ void adreno_cp_callback(struct adreno_device *adreno_dev, int bit)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 
+	kgsl_schedule_work(&device->event_work);
 	adreno_dispatcher_schedule(device);
 }
 

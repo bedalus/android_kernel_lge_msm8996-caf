@@ -22,6 +22,7 @@
 #include "vidc_hfi_api.h"
 #include "msm_vidc_debug.h"
 #include "msm_vidc_dcvs.h"
+#include "msm_vdec.h"
 
 #define IS_ALREADY_IN_STATE(__p, __d) ({\
 	int __rc = (__p >= __d);\
@@ -284,12 +285,8 @@ static int msm_comm_get_mbs_per_sec(struct msm_vidc_inst *inst)
 	u32 fps;
 	struct v4l2_control ctrl;
 
-	output_port_mbs = inst->in_reconfig ?
-			NUM_MBS_PER_FRAME(inst->reconfig_width,
-				inst->reconfig_height) :
-			NUM_MBS_PER_FRAME(inst->prop.width[OUTPUT_PORT],
-				inst->prop.height[OUTPUT_PORT]);
-
+	output_port_mbs = NUM_MBS_PER_FRAME(inst->prop.width[OUTPUT_PORT],
+		inst->prop.height[OUTPUT_PORT]);
 	capture_port_mbs = NUM_MBS_PER_FRAME(inst->prop.width[CAPTURE_PORT],
 		inst->prop.height[CAPTURE_PORT]);
 
@@ -1214,8 +1211,13 @@ static void handle_event_change(enum hal_command_response cmd, void *data)
 			"V4L2_EVENT_SEQ_CHANGED_INSUFFICIENT due to bit-depth change\n");
 	}
 
+#ifdef CONFIG_MACH_LGE
+	    if (inst->pic_struct != event_notify->pic_struct && !((inst->flags & VIDC_SECURE) && (inst->fmts[OUTPUT_PORT]->fourcc == V4L2_PIX_FMT_MPEG2))){
+//[S][LGDTV][isdbt-fwk@lge.com] Conditions are added to check if instance is secure and mpeg2
+#else
 	if (inst->fmts[CAPTURE_PORT]->fourcc == V4L2_PIX_FMT_NV12 &&
 		inst->pic_struct != event_notify->pic_struct) {
+#endif
 		inst->pic_struct = event_notify->pic_struct;
 		event = V4L2_EVENT_SEQ_CHANGED_INSUFFICIENT;
 		ptr[2] |= V4L2_EVENT_PICSTRUCT_FLAG;
@@ -1231,12 +1233,14 @@ static void handle_event_change(enum hal_command_response cmd, void *data)
 		inst->in_reconfig = true;
 	} else {
 		dprintk(VIDC_DBG, "V4L2_EVENT_SEQ_CHANGED_SUFFICIENT\n");
-		dprintk(VIDC_DBG,
-			"event_notify->height = %d event_notify->width = %d\n",
-			event_notify->height,
-			event_notify->width);
-		inst->prop.height[OUTPUT_PORT] = event_notify->height;
-		inst->prop.width[OUTPUT_PORT] = event_notify->width;
+			dprintk(VIDC_DBG,
+					"event_notify->height = %d event_notify->width = %d\n",
+					event_notify->height,
+					event_notify->width);
+			inst->prop.height[CAPTURE_PORT] = event_notify->height;
+			inst->prop.width[CAPTURE_PORT] = event_notify->width;
+			inst->prop.height[OUTPUT_PORT] = event_notify->height;
+			inst->prop.width[OUTPUT_PORT] = event_notify->width;
 	}
 
 	inst->seqchanged_count++;
@@ -3893,6 +3897,7 @@ int msm_comm_try_get_bufreqs(struct msm_vidc_inst *inst)
 	dprintk(VIDC_PROF, "Input buffers: %d, Output buffers: %d\n",
 			inst->buff_req.buffer[0].buffer_count_actual,
 			inst->buff_req.buffer[1].buffer_count_actual);
+
 	return rc;
 }
 

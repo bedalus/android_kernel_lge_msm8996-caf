@@ -74,16 +74,18 @@
 #include <linux/crypto.h>
 #include <linux/scatterlist.h>
 
-#ifndef CONFIG_LGP_DATA_TCPIP_MPTCP
-static void	tcp_v6_send_reset(struct sock *sk, struct sk_buff *skb);
-static void	tcp_v6_reqsk_send_ack(struct sock *sk, struct sk_buff *skb,
-				      struct request_sock *req);
+#ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
+#else
+static void    tcp_v6_send_reset(struct sock *sk, struct sk_buff *skb);
+static void    tcp_v6_reqsk_send_ack(struct sock *sk, struct sk_buff *skb,
+                                     struct request_sock *req);
 
 static int	tcp_v6_do_rcv(struct sock *sk, struct sk_buff *skb);
 
 static const struct inet_connection_sock_af_ops ipv6_mapped;
 static const struct inet_connection_sock_af_ops ipv6_specific;
 #endif
+
 #ifdef CONFIG_TCP_MD5SIG
 static const struct tcp_sock_af_ops tcp_sock_ipv6_specific;
 static const struct tcp_sock_af_ops tcp_sock_ipv6_mapped_specific;
@@ -221,7 +223,6 @@ static int tcp_v6_connect(struct sock *sk, struct sockaddr *uaddr,
 		sin.sin_family = AF_INET;
 		sin.sin_port = usin->sin6_port;
 		sin.sin_addr.s_addr = usin->sin6_addr.s6_addr32[3];
-
 #ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
 #ifdef CONFIG_MPTCP
 		if (sock_flag(sk, SOCK_MPTCP))
@@ -367,11 +368,11 @@ static void tcp_v6_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
 	const struct ipv6hdr *hdr = (const struct ipv6hdr *)skb->data;
 	const struct tcphdr *th = (struct tcphdr *)(skb->data+offset);
 	struct ipv6_pinfo *np;
-#ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
+	#ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
 	struct sock *sk, *meta_sk;
-#else
+	#else
 	struct sock *sk;
-#endif
+	#endif
 	int err;
 	struct tcp_sock *tp;
 	struct request_sock *fastopen;
@@ -392,7 +393,7 @@ static void tcp_v6_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
 		return;
 	}
 
-#ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
+	#ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
 	tp = tcp_sk(sk);
 	if (mptcp(tp))
 		meta_sk = mptcp_meta_sk(sk);
@@ -401,10 +402,10 @@ static void tcp_v6_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
 
 	bh_lock_sock(meta_sk);
 	if (sock_owned_by_user(meta_sk) && type != ICMPV6_PKT_TOOBIG)
-#else
-	bh_lock_sock(sk);
-	if (sock_owned_by_user(sk) && type != ICMPV6_PKT_TOOBIG)
-#endif
+	#else
+       bh_lock_sock(sk);
+       if (sock_owned_by_user(sk) && type != ICMPV6_PKT_TOOBIG)
+	#endif
 		NET_INC_STATS_BH(net, LINUX_MIB_LOCKDROPPEDICMPS);
 
 	if (sk->sk_state == TCP_CLOSE)
@@ -415,9 +416,10 @@ static void tcp_v6_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
 		goto out;
 	}
 
-#ifndef CONFIG_LGP_DATA_TCPIP_MPTCP
+	#ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
+	#else
 	tp = tcp_sk(sk);
-#endif
+	#endif
 	seq = ntohl(th->seq);
 	/* XXX (TFO) - tp->snd_una should be ISN (tcp_create_openreq_child() */
 	fastopen = tp->fastopen_rsk;
@@ -450,27 +452,27 @@ static void tcp_v6_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
 			goto out;
 
 		tp->mtu_info = ntohl(info);
-#ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
+		#ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
 		if (!sock_owned_by_user(meta_sk))
-#else
+		#else
 		if (!sock_owned_by_user(sk))
-#endif
+		#endif
 			tcp_v6_mtu_reduced(sk);
-#ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
+		#ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
 		else {
 			if (!test_and_set_bit(TCP_MTU_REDUCED_DEFERRED,
-#else
+		#else
 		else if (!test_and_set_bit(TCP_MTU_REDUCED_DEFERRED,
-#endif
+		#endif
 					   &tp->tsq_flags))
-#ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
+		#ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
 				sock_hold(sk);
 			if (mptcp(tp))
 				mptcp_tsq_flags(sk);
 			}
-#else
+		#else
 			sock_hold(sk);
-#endif
+		#endif
 		goto out;
 	}
 
@@ -480,11 +482,11 @@ static void tcp_v6_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
 	switch (sk->sk_state) {
 		struct request_sock *req, **prev;
 	case TCP_LISTEN:
-#ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
+		#ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
 		if (sock_owned_by_user(meta_sk))
-#else
+		#else
 		if (sock_owned_by_user(sk))
-#endif
+		#endif
 			goto out;
 
 		/* Note : We use inet6_iif() here, not tcp_v6_iif() */
@@ -515,11 +517,11 @@ static void tcp_v6_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
 		if (fastopen && fastopen->sk == NULL)
 			break;
 
-#ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
+		#ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
 		if (!sock_owned_by_user(meta_sk)) {
-#else
+		#else
 		if (!sock_owned_by_user(sk)) {
-#endif
+		#endif
 			sk->sk_err = err;
 			sk->sk_error_report(sk);		/* Wake people up to see the error (see connect in sock.c) */
 
@@ -529,38 +531,38 @@ static void tcp_v6_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
 		goto out;
 	}
 
-#ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
+	#ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
 	if (!sock_owned_by_user(meta_sk) && np->recverr) {
-#else
+	#else
 	if (!sock_owned_by_user(sk) && np->recverr) {
-#endif
+	#endif
 		sk->sk_err = err;
 		sk->sk_error_report(sk);
 	} else
 		sk->sk_err_soft = err;
 
 out:
-#ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
+	#ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
 	bh_unlock_sock(meta_sk);
-#else
+	#else
 	bh_unlock_sock(sk);
-#endif
+	#endif
 	sock_put(sk);
 }
 
 
 #ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
 int tcp_v6_send_synack(struct sock *sk, struct dst_entry *dst,
-			      struct flowi *fl,
-			      struct request_sock *req,
-			      u16 queue_mapping,
-			      struct tcp_fastopen_cookie *foc)
+		       struct flowi *fl,
+		       struct request_sock *req,
+		       u16 queue_mapping,
+		       struct tcp_fastopen_cookie *foc)
 #else
 static int tcp_v6_send_synack(struct sock *sk, struct dst_entry *dst,
-			      struct flowi *fl,
-			      struct request_sock *req,
-			      u16 queue_mapping,
-			      struct tcp_fastopen_cookie *foc)
+                            struct flowi *fl,
+                            struct request_sock *req,
+                            u16 queue_mapping,
+                            struct tcp_fastopen_cookie *foc)
 #endif
 {
 	struct inet_request_sock *ireq = inet_rsk(req);
@@ -589,10 +591,10 @@ static int tcp_v6_send_synack(struct sock *sk, struct dst_entry *dst,
 			       np->tclass);
 		rcu_read_unlock();
 		err = net_xmit_eval(err);
-#ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
+		#ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
 		if (!tcp_rsk(req)->snt_synack && !err)
 			tcp_rsk(req)->snt_synack = tcp_time_stamp;
-#endif
+		#endif
 	}
 
 done:
@@ -820,10 +822,10 @@ static int tcp_v6_inbound_md5_hash(struct sock *sk, const struct sk_buff *skb)
 
 #ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
 static int tcp_v6_init_req(struct request_sock *req, struct sock *sk,
-			    struct sk_buff *skb, bool want_cookie)
+			   struct sk_buff *skb, bool want_cookie)
 #else
 static void tcp_v6_init_req(struct request_sock *req, struct sock *sk,
-			    struct sk_buff *skb)
+                          struct sk_buff *skb)
 #endif
 {
 	struct inet_request_sock *ireq = inet_rsk(req);
@@ -833,12 +835,12 @@ static void tcp_v6_init_req(struct request_sock *req, struct sock *sk,
 	ireq->ir_v6_loc_addr = ipv6_hdr(skb)->daddr;
 
 	ireq->ir_iif = sk->sk_bound_dev_if;
-#ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
+	#ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
 	/* 2015-07-10 bongsook.jeong@lge.com, LGP_DATA_TCPIP_MPTCP [START] */
 	//tcp syn is drop in TCP_LISTEN state.
 	inet_rsk(req)->ir_mark = inet_request_mark(sk, skb);
 	/* 2015-07-10 bongsook.jeong@lge.com, LGP_DATA_TCPIP_MPTCP [END] */
-#endif
+	#endif
 	/* So that link locals have meaning */
 	if (!sk->sk_bound_dev_if &&
 	    ipv6_addr_type(&ireq->ir_v6_rmt_addr) & IPV6_ADDR_LINKLOCAL)
@@ -853,9 +855,9 @@ static void tcp_v6_init_req(struct request_sock *req, struct sock *sk,
 		ireq->pktopts = skb;
 	}
 
-#ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
+	#ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
 	return 0;
-#endif
+	#endif
 }
 
 static struct dst_entry *tcp_v6_route_req(struct sock *sk, struct flowi *fl,
@@ -899,17 +901,17 @@ static const struct tcp_request_sock_ops tcp_request_sock_ipv6_ops = {
 };
 
 static void tcp_v6_send_response(struct sock *sk, struct sk_buff *skb, u32 seq,
-#ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
+				#ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
 				 u32 ack, u32 data_ack, u32 win, u32 tsval, u32 tsecr,
-#else
+				 #else
 				 u32 ack, u32 win, u32 tsval, u32 tsecr,
-#endif
+				 #endif
 				 int oif, struct tcp_md5sig_key *key, int rst,
-#ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
+				 #ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
 				 u8 tclass, u32 label, int mptcp)
-#else
+				 #else
 				 u8 tclass, u32 label)
-#endif
+				 #endif
 {
 	const struct tcphdr *th = tcp_hdr(skb);
 	struct tcphdr *t1;
@@ -970,12 +972,11 @@ static void tcp_v6_send_response(struct sock *sk, struct sk_buff *skb, u32 seq,
 		tcp_v6_md5_hash_hdr((__u8 *)topt, key,
 				    &ipv6_hdr(skb)->saddr,
 				    &ipv6_hdr(skb)->daddr, t1);
-#ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
+		#ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
 		topt += 4;
-#endif
+		#endif
 	}
 #endif
-
 #ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
 #ifdef CONFIG_MPTCP
 	if (mptcp) {
@@ -1089,11 +1090,11 @@ static void tcp_v6_send_reset(struct sock *sk, struct sk_buff *skb)
 			  (th->doff << 2);
 
 	oif = sk ? sk->sk_bound_dev_if : 0;
-#ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
+	#ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
 	tcp_v6_send_response(sk, skb, seq, ack_seq, 0, 0, 0, 0, oif, key, 1, 0, 0, 0);
-#else
+	#else
 	tcp_v6_send_response(sk, skb, seq, ack_seq, 0, 0, 0, oif, key, 1, 0, 0);
-#endif
+	#endif
 
 #ifdef CONFIG_TCP_MD5SIG
 release_sk1:
@@ -1105,24 +1106,24 @@ release_sk1:
 }
 
 static void tcp_v6_send_ack(struct sock *sk, struct sk_buff *skb, u32 seq,
-#ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
+			    #ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
 			    u32 ack, u32 data_ack, u32 win, u32 tsval, u32 tsecr, int oif,
-#else
+			    #else
 			    u32 ack, u32 win, u32 tsval, u32 tsecr, int oif,
-#endif
+			    #endif
 			    struct tcp_md5sig_key *key, u8 tclass,
-#ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
+			    #ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
 			    u32 label, int mptcp)
-#else
+			    #else
 			    u32 label)
-#endif
+			    #endif
 {
 #ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
 	tcp_v6_send_response(sk, skb, seq, ack, data_ack, win, tsval, tsecr, oif,
 			     key, 0, tclass, label, mptcp);
 #else
 	tcp_v6_send_response(sk, skb, seq, ack, win, tsval, tsecr, oif, key, 0,
-			     tclass, label);
+                           tclass, label);
 #endif
 }
 
@@ -1130,7 +1131,7 @@ static void tcp_v6_timewait_ack(struct sock *sk, struct sk_buff *skb)
 {
 	struct inet_timewait_sock *tw = inet_twsk(sk);
 	struct tcp_timewait_sock *tcptw = tcp_twsk(sk);
-#ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
+	#ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
 	u32 data_ack = 0;
 	int mptcp = 0;
 
@@ -1138,29 +1139,29 @@ static void tcp_v6_timewait_ack(struct sock *sk, struct sk_buff *skb)
 		data_ack = (u32)tcptw->mptcp_tw->rcv_nxt;
 		mptcp = 1;
 	}
-#endif
+	#endif
 	tcp_v6_send_ack(sk, skb, tcptw->tw_snd_nxt, tcptw->tw_rcv_nxt,
-#ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
+			#ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
 			data_ack,
-#endif
+			#endif
 			tcptw->tw_rcv_wnd >> tw->tw_rcv_wscale,
 			tcp_time_stamp + tcptw->tw_ts_offset,
 			tcptw->tw_ts_recent, tw->tw_bound_dev_if, tcp_twsk_md5_key(tcptw),
-#ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
+			#ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
 			tw->tw_tclass, cpu_to_be32(tw->tw_flowlabel), mptcp);
-#else
+			#else
 			tw->tw_tclass, cpu_to_be32(tw->tw_flowlabel));
-#endif
+			#endif
 
 	inet_twsk_put(tw);
 }
 
 #ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
 void tcp_v6_reqsk_send_ack(struct sock *sk, struct sk_buff *skb,
-				  struct request_sock *req)
+			   struct request_sock *req)
 #else
 static void tcp_v6_reqsk_send_ack(struct sock *sk, struct sk_buff *skb,
-				  struct request_sock *req)
+                                struct request_sock *req)
 #endif
 {
 	/* sk->sk_state == TCP_LISTEN -> for regular TCP_SYN_RECV
@@ -1168,21 +1169,20 @@ static void tcp_v6_reqsk_send_ack(struct sock *sk, struct sk_buff *skb,
 	 */
 	tcp_v6_send_ack(sk, skb, (sk->sk_state == TCP_LISTEN) ?
 			tcp_rsk(req)->snt_isn + 1 : tcp_sk(sk)->snd_nxt,
-#ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
+			#ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
 			tcp_rsk(req)->rcv_nxt, 0,
 			req->rcv_wnd, tcp_time_stamp, req->ts_recent, sk->sk_bound_dev_if,
-#else
-			tcp_rsk(req)->rcv_nxt, req->rcv_wnd,
-			tcp_time_stamp, req->ts_recent, sk->sk_bound_dev_if,
-#endif
+			#else
+                   tcp_rsk(req)->rcv_nxt, req->rcv_wnd,
+                   tcp_time_stamp, req->ts_recent, sk->sk_bound_dev_if,
+			#endif
 			tcp_v6_md5_do_lookup(sk, &ipv6_hdr(skb)->daddr),
-#ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
+			#ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
 			0, 0, 0);
-#else
+			#else
 			0, 0);
-#endif
+			#endif
 }
-
 
 #ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
 struct sock *tcp_v6_hnd_req(struct sock *sk, struct sk_buff *skb)
@@ -1208,13 +1208,13 @@ static struct sock *tcp_v6_hnd_req(struct sock *sk, struct sk_buff *skb)
 
 	if (nsk) {
 		if (nsk->sk_state != TCP_TIME_WAIT) {
-#ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
+			#ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
 			/* Don't lock again the meta-sk. It has been locked
 			 * before mptcp_v6_do_rcv.
 			 */
 			if (mptcp(tcp_sk(nsk)) && !is_meta_sk(sk))
 				bh_lock_sock(mptcp_meta_sk(nsk));
-#endif
+			#endif
 			bh_lock_sock(nsk);
 			return nsk;
 		}
@@ -1251,12 +1251,12 @@ drop:
 
 #ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
 struct sock *tcp_v6_syn_recv_sock(struct sock *sk, struct sk_buff *skb,
-					 struct request_sock *req,
-					 struct dst_entry *dst)
+				  struct request_sock *req,
+				  struct dst_entry *dst)
 #else
 static struct sock *tcp_v6_syn_recv_sock(struct sock *sk, struct sk_buff *skb,
-					 struct request_sock *req,
-					 struct dst_entry *dst)
+                                        struct request_sock *req,
+                                        struct dst_entry *dst)
 #endif
 {
 	struct inet_request_sock *ireq;
@@ -1504,10 +1504,10 @@ static int tcp_v6_do_rcv(struct sock *sk, struct sk_buff *skb)
 	if (skb->protocol == htons(ETH_P_IP))
 		return tcp_v4_do_rcv(sk, skb);
 
-#ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
+	#ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
 	if (is_meta_sk(sk))
 		return mptcp_v6_do_rcv(sk, skb);
-#endif
+	#endif
 
 	if (sk_filter(sk, skb))
 		goto discard;
@@ -1667,11 +1667,11 @@ static int tcp_v6_rcv(struct sk_buff *skb)
 {
 	const struct tcphdr *th;
 	const struct ipv6hdr *hdr;
-#ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
+	#ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
 	struct sock *sk, *meta_sk = NULL;
-#else
+	#else
 	struct sock *sk;
-#endif
+	#endif
 	int ret;
 	struct net *net = dev_net(skb->dev);
 
@@ -1704,22 +1704,22 @@ static int tcp_v6_rcv(struct sk_buff *skb)
 
 	#ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
 	#else
-	if (!sk)
-		goto no_tcp_socket;
+       if (!sk)
+               goto no_tcp_socket;
 	#endif
 
 process:
-#ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
+	#ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
 	if (sk && sk->sk_state == TCP_TIME_WAIT)
-#else
+	#else
 	if (sk->sk_state == TCP_TIME_WAIT)
-#endif
+	#endif
 		goto do_time_wait;
 
-#ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
+	#ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
 	if (!sk)
 		goto no_tcp_socket;
-#endif
+	#endif
 
 	if (hdr->hop_limit < inet6_sk(sk)->min_hopcount) {
 		NET_INC_STATS_BH(net, LINUX_MIB_TCPMINTTLDROP);
@@ -1753,7 +1753,7 @@ process:
 	sk_mark_napi_id(sk, skb);
 	skb->dev = NULL;
 
-#ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
+	#ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
 	if (mptcp(tcp_sk(sk))) {
 		meta_sk = mptcp_meta_sk(sk);
 
@@ -1764,37 +1764,37 @@ process:
 		meta_sk = sk;
 		bh_lock_sock_nested(sk);
 	}
-#else
+	#else
 	bh_lock_sock_nested(sk);
-#endif
+	#endif
 
 	ret = 0;
-#ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
+	#ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
 	if (!sock_owned_by_user(meta_sk)) {
 		if (!tcp_prequeue(meta_sk, skb))
-#else
-	if (!sock_owned_by_user(sk)) {
-		if (!tcp_prequeue(sk, skb))
-#endif
+	#else
+       if (!sock_owned_by_user(sk)) {
+             if (!tcp_prequeue(sk, skb))
+	#endif
 			ret = tcp_v6_do_rcv(sk, skb);
-#ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
+	#ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
 	} else if (unlikely(sk_add_backlog(meta_sk, skb,
 					   meta_sk->sk_rcvbuf + meta_sk->sk_sndbuf))) {
 		bh_unlock_sock(meta_sk);
-#else
+	#else
 	} else if (unlikely(sk_add_backlog(sk, skb,
-					   sk->sk_rcvbuf + sk->sk_sndbuf))) {
-		bh_unlock_sock(sk);
-#endif
+                                     sk->sk_rcvbuf + sk->sk_sndbuf))) {
+             bh_unlock_sock(sk);
+	#endif
 		NET_INC_STATS_BH(net, LINUX_MIB_TCPBACKLOGDROP);
 		goto discard_and_relse;
 	}
 
-#ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
+	#ifdef CONFIG_LGP_DATA_TCPIP_MPTCP
 	bh_unlock_sock(meta_sk);
-#else
+	#else
 	bh_unlock_sock(sk);
-#endif
+	#endif
 
 	sock_put(sk);
 	return ret ? -1 : 0;

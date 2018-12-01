@@ -1561,6 +1561,9 @@ static int mdss_fb_probe(struct platform_device *pdev)
 	mfd->fb_imgType = MDP_RGBA_8888;
 	mfd->calib_mode_bl = 0;
 	mfd->unset_bl_level = U32_MAX;
+#if IS_ENABLED(CONFIG_LGE_DISPLAY_BL_EXTENDED)
+	mfd->unset_bl_level_ex = U32_MAX;
+#endif
 
 	mfd->pdev = pdev;
 
@@ -2033,10 +2036,10 @@ void mdss_fb_set_backlight(struct msm_fb_data_type *mfd, u32 bkl_lvl)
 		mfd->panel_info->cont_splash_enabled) {
 #if defined(CONFIG_LGE_DISPLAY_AOD_SUPPORTED)
 		if (mfd->panel_info->aod_cur_mode == AOD_PANEL_MODE_U0_BLANK || mfd->panel_info->aod_cur_mode == AOD_PANEL_MODE_U3_UNBLANK) {
-		mfd->unset_bl_level = bkl_lvl;
+			mfd->unset_bl_level = bkl_lvl;
 			if (mfd->index == 0)
 				pr_info("[AOD] Save unset_bl_level(%d) in %s mode. Will be updated when kick off function\n", mfd->unset_bl_level, mfd->panel_info->aod_cur_mode ? "U3" : "U0");
-		return;
+			return;
 		}
 		else
 		{
@@ -2330,30 +2333,30 @@ static int mdss_fb_blank_unblank(struct msm_fb_data_type *mfd)
 			mfd->allow_bl_update = false;
 		}
 		mutex_unlock(&mfd->bl_lock);
-	}
 #if IS_ENABLED(CONFIG_LGE_DISPLAY_BL_EXTENDED)
-	mutex_lock(&mfd->bl_lock);
-	if (!mfd->allow_bl_update_ex) {
-		mfd->allow_bl_update_ex = true;
-		/*
-		 * If in AD calibration mode then frameworks would not
-		 * be allowed to update backlight hence post unblank
-		 * the backlight would remain 0 (0 is set in blank).
-		 * Hence resetting back to calibration mode value
-		 */
-		if (!IS_CALIB_MODE_BL(mfd))
-			mdss_fb_set_backlight_ex(mfd, mfd->unset_bl_level_ex);
-		else
-			mdss_fb_set_backlight_ex(mfd, mfd->calib_mode_bl);
+		mutex_lock(&mfd->bl_lock);
+		if (!mfd->allow_bl_update_ex) {
+			mfd->allow_bl_update_ex = true;
+			/*
+			 * If in AD calibration mode then frameworks would not
+			 * be allowed to update backlight hence post unblank
+			 * the backlight would remain 0 (0 is set in blank).
+			 * Hence resetting back to calibration mode value
+			 */
+			if (!IS_CALIB_MODE_BL(mfd))
+				mdss_fb_set_backlight_ex(mfd, mfd->unset_bl_level_ex);
+			else
+				mdss_fb_set_backlight_ex(mfd, mfd->calib_mode_bl);
 
-		/*
-		 * it blocks the backlight update between unblank and
-		 * first kickoff to avoid backlight turn on before black
-		 * frame is transferred to panel through unblank call.
-		 */
-		mfd->allow_bl_update_ex = false;
+			/*
+			 * it blocks the backlight update between unblank and
+			 * first kickoff to avoid backlight turn on before black
+			 * frame is transferred to panel through unblank call.
+			 */
+			mfd->allow_bl_update_ex = false;
+		}
+		mutex_unlock(&mfd->bl_lock);
 	}
-	mutex_unlock(&mfd->bl_lock);
 #endif
 #endif
 error:
@@ -2374,7 +2377,7 @@ static int mdss_fb_blank_sub(int blank_mode, struct fb_info *info,
 	if (mfd->dcm_state == DCM_ENTER)
 		return -EPERM;
 
-	pr_debug("%pS mode:%d\n", __builtin_return_address(0),
+	pr_info("[Display] %pS mode:%d\n", __builtin_return_address(0),
 		blank_mode);
 
 	snprintf(trace_buffer, sizeof(trace_buffer), "fb%d blank %d",
@@ -2455,7 +2458,6 @@ static int mdss_fb_blank_sub(int blank_mode, struct fb_info *info,
 		ret = mdss_fb_blank_blank(mfd, req_power_state);
 		break;
 	}
-
 #if defined(CONFIG_LGE_DISPLAY_AOD_SUPPORTED)
 	if (!mfd->panel_info->cont_splash_enabled && mfd->index == 0)
 		mutex_unlock(&mfd->aod_lock);
@@ -2464,12 +2466,12 @@ static int mdss_fb_blank_sub(int blank_mode, struct fb_info *info,
 	sysfs_notify(&mfd->fbi->dev->kobj, NULL, "show_blank_event");
 
 	ATRACE_END(trace_buffer);
-
 #if defined(CONFIG_LGE_DISPLAY_COMMON)
 	if (mfd->recovery && blank_mode == FB_BLANK_UNBLANK) {
 		mfd->recovery= false;
 	}
 #endif
+	pr_err("%s: -\n",__func__);
 	return ret;
 }
 
@@ -2621,7 +2623,7 @@ int mdss_fb_alloc_fb_ion_memory(struct msm_fb_data_type *mfd, size_t fb_size)
 		rc = PTR_ERR(vaddr);
 		goto err_unmap;
 	}
-	pr_debug("alloc 0x%zuB vaddr = %pK for fb%d\n", fb_size,
+	pr_debug("alloc 0x%zuB vaddr = %p for fb%d\n", fb_size,
 			vaddr, mfd->index);
 
 	mfd->fbi->screen_base = (char *) vaddr;
@@ -2720,7 +2722,7 @@ static int mdss_fb_fbmem_ion_mmap(struct fb_info *info,
 				vma->vm_page_prot =
 					pgprot_writecombine(vma->vm_page_prot);
 
-			pr_debug("vma=%pK, addr=%x len=%ld\n",
+			pr_debug("vma=%p, addr=%x len=%ld\n",
 					vma, (unsigned int)addr, len);
 			pr_debug("vm_start=%x vm_end=%x vm_page_prot=%ld\n",
 					(unsigned int)vma->vm_start,
@@ -2887,7 +2889,7 @@ static int mdss_fb_alloc_fbmem_iommu(struct msm_fb_data_type *mfd, int dom)
 		return -ERANGE;
 	}
 
-	pr_debug("alloc 0x%zxB @ (%pa phys) (0x%pK virt) (%pa iova) for fb%d\n",
+	pr_debug("alloc 0x%zxB @ (%pa phys) (0x%p virt) (%pa iova) for fb%d\n",
 		 size, &phys, virt, &mfd->iova, mfd->index);
 
 	mfd->fbi->screen_base = virt;
@@ -3175,7 +3177,7 @@ static int mdss_fb_open(struct fb_info *info, int user)
 	}
 
 	mfd->ref_cnt++;
-	pr_debug("mfd refcount:%d file:%pK\n", mfd->ref_cnt, info->file);
+	pr_debug("mfd refcount:%d file:%p\n", mfd->ref_cnt, info->file);
 
 	return 0;
 
@@ -3240,7 +3242,7 @@ static int mdss_fb_release_all(struct fb_info *info, bool release_all)
 		pr_warn("file node not found or wrong ref cnt: release all:%d refcnt:%d\n",
 			release_all, mfd->ref_cnt);
 
-	pr_debug("current process=%s pid=%d mfd->ref=%d file:%pK\n",
+	pr_debug("current process=%s pid=%d mfd->ref=%d file:%p\n",
 		task->comm, current->tgid, mfd->ref_cnt, info->file);
 
 	if (!mfd->ref_cnt || release_all) {
@@ -3259,11 +3261,9 @@ static int mdss_fb_release_all(struct fb_info *info, bool release_all)
 		 * adb shell stop/start.
 		 */
 		mdss_fb_set_backlight(mfd, 0);
-
 #if defined(CONFIG_LGE_DISPLAY_AOD_SUPPORTED)
 		lge_mdss_fb_aod_release(mfd);
 #endif
-
 		ret = mdss_fb_blank_sub(FB_BLANK_POWERDOWN, info,
 			mfd->op_enable);
 		if (ret) {
@@ -3987,8 +3987,7 @@ void mdss_panelinfo_to_fb_var(struct mdss_panel_info *pinfo,
 	var->left_margin = pinfo->lcdc.h_back_porch;
 	var->hsync_len = pinfo->lcdc.h_pulse_width;
 
-	frame_rate = mdss_panel_get_framerate(pinfo,
-					FPS_RESOLUTION_HZ);
+	frame_rate = mdss_panel_get_framerate(pinfo);
 	if (frame_rate) {
 		unsigned long clk_rate, h_total, v_total;
 
@@ -4083,7 +4082,6 @@ skip_commit:
 	if (!ret)
 		mdss_fb_update_backlight_ex(mfd);
 #endif
-
 	if (IS_ERR_VALUE(ret) || !sync_pt_data->flushed) {
 		mdss_fb_release_kickoff(mfd);
 		mdss_fb_signal_timeline(sync_pt_data);
@@ -4903,8 +4901,6 @@ static int mdss_fb_atomic_commit_ioctl(struct fb_info *info,
 	struct mdp_input_layer __user *input_layer_list;
 	struct mdp_output_layer *output_layer = NULL;
 	struct mdp_output_layer __user *output_layer_user;
-	struct mdp_frc_info *frc_info = NULL;
-	struct mdp_frc_info __user *frc_info_user;
 
 	ret = copy_from_user(&commit, argp, sizeof(struct mdp_layer_commit));
 	if (ret) {
@@ -4982,26 +4978,6 @@ static int mdss_fb_atomic_commit_ioctl(struct fb_info *info,
 		}
 	}
 
-	/* Copy Deterministic Frame Rate Control info from userspace */
-	frc_info_user = commit.commit_v1.frc_info;
-	if (frc_info_user) {
-		frc_info = kzalloc(sizeof(struct mdp_frc_info), GFP_KERNEL);
-		if (!frc_info) {
-			pr_err("unable to allocate memory for frc\n");
-			ret = -ENOMEM;
-			goto err;
-		}
-
-		ret = copy_from_user(frc_info, frc_info_user,
-			sizeof(struct mdp_frc_info));
-		if (ret) {
-			pr_err("frc info copy from user failed\n");
-			goto frc_err;
-		}
-
-		commit.commit_v1.frc_info = frc_info;
-	}
-
 	ATRACE_BEGIN("ATOMIC_COMMIT");
 	ret = mdss_fb_atomic_commit(info, &commit, file);
 	if (ret)
@@ -5018,15 +4994,12 @@ static int mdss_fb_atomic_commit_ioctl(struct fb_info *info,
 
 		commit.commit_v1.input_layers = input_layer_list;
 		commit.commit_v1.output_layer = output_layer_user;
-		commit.commit_v1.frc_info = frc_info_user;
 		rc = copy_to_user(argp, &commit,
 			sizeof(struct mdp_layer_commit));
 		if (rc)
 			pr_err("copy to user for release & retire fence failed\n");
 	}
 
-frc_err:
-	kfree(frc_info);
 err:
 	for (i--; i >= 0; i--) {
 		kfree(layer_list[i].scale);
@@ -5184,9 +5157,9 @@ int mdss_fb_do_ioctl(struct fb_info *info, unsigned int cmd,
 	struct mdss_panel_data *pdata = NULL;
 
 #if defined(CONFIG_LGE_BROADCAST_TDMB) || defined(CONFIG_LGE_BROADCAST_ISDBT_JAPAN)
-	int dmb_flag = 0;
-	struct mdp_csc_cfg dmb_csc_cfg;
-#endif /* LGE_BROADCAST */
+    int dmb_flag = 0;
+    struct mdp_csc_cfg dmb_csc_cfg;
+#endif /* LGE_BROADCAST */	
 
 	if (!info || !info->par)
 		return -EINVAL;
@@ -5244,19 +5217,21 @@ int mdss_fb_do_ioctl(struct fb_info *info, unsigned int cmd,
 		break;
 
 #if defined(CONFIG_LGE_BROADCAST_TDMB) || defined(CONFIG_LGE_BROADCAST_ISDBT_JAPAN)
-	case MSMFB_DMB_SET_FLAG:
-		ret = copy_from_user(&dmb_flag, argp, sizeof(int));
-		if (ret)
-			return ret;
-		ret = pp_set_dmb_status(dmb_flag);
+    case MSMFB_DMB_SET_FLAG:
+        ret = copy_from_user(&dmb_flag, argp, sizeof(int));
+        if (ret)
+            return ret;
+        ret = pp_set_dmb_status(dmb_flag);
+		/* pr_debug("[MDP] MSMFB_DMB_SET_FLAG : dmb_flag = %d\n", dmb_flag); */
 		break;
 
-	case MSMFB_DMB_SET_CSC_MATRIX:
-		ret = copy_from_user(&dmb_csc_cfg, argp, sizeof(dmb_csc_cfg));
-		if (ret)
-			return ret;
-		memcpy(dmb_csc_convert.csc_mv, dmb_csc_cfg.csc_mv, sizeof(dmb_csc_cfg.csc_mv));
-		break;
+    case MSMFB_DMB_SET_CSC_MATRIX:
+        ret = copy_from_user(&dmb_csc_cfg, argp, sizeof(dmb_csc_cfg));
+        if (ret)
+            return ret;
+        memcpy(dmb_csc_convert.csc_mv, dmb_csc_cfg.csc_mv, sizeof(dmb_csc_cfg.csc_mv));
+		/* pr_debug("[MDP] MSMFB_DMB_SET_CSC_MATRIX : dmc_csc_cfg.flag = %d\n", dmb_csc_cfg.flags); */
+        break;
 #endif /* LGE_BROADCAST */
 
 	case MSMFB_LPM_ENABLE:
@@ -5492,17 +5467,16 @@ int mdss_fb_suspres_panel(struct device *dev, void *data)
  */
 void mdss_fb_report_panel_dead(struct msm_fb_data_type *mfd)
 {
-#if defined(CONFIG_LGE_PANEL_RECOVERY)
 	char *envp[2] = {"PANEL_ALIVE=0", NULL};
-#endif
 	struct mdss_panel_data *pdata =
 		dev_get_platdata(&mfd->pdev->dev);
 	if (!pdata) {
 		pr_err("Panel data not available\n");
 		return;
 	}
-
-#if defined(CONFIG_LGE_PANEL_RECOVERY)
+#if !defined(CONFIG_LGE_PANEL_RECOVERY)
+	return;
+#endif
 #if defined(CONFIG_LGE_DISPLAY_COMMON)
 	if (mfd->recovery) {
 		pr_info("[Display] Already in recovery!!\n");
@@ -5525,5 +5499,4 @@ void mdss_fb_report_panel_dead(struct msm_fb_data_type *mfd)
 	kobject_uevent_env(&mfd->fbi->dev->kobj,
 		KOBJ_CHANGE, envp);
 	pr_err("Panel has gone bad, sending uevent - %s\n", envp[0]);
-#endif
 }

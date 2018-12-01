@@ -717,6 +717,7 @@ static int _qpnp_pin_config(struct qpnp_pin_chip *q_chip,
 	}
 #endif
 
+
 	return 0;
 
 gpio_cfg:

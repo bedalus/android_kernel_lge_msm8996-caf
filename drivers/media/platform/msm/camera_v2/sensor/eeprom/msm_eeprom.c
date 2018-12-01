@@ -886,7 +886,7 @@ static int msm_eeprom_i2c_probe(struct i2c_client *client,
 	}
 	e_ctrl->eeprom_v4l2_subdev_ops = &msm_eeprom_subdev_ops;
 	e_ctrl->eeprom_mutex = &msm_eeprom_mutex;
-	CDBG("%s client = 0x%pK\n", __func__, client);
+	CDBG("%s client = 0x%p\n", __func__, client);
 
 #ifndef CONFIG_MACH_LGE
 	e_ctrl->eboard_info = (struct msm_eeprom_board_info *)(id->driver_data);
@@ -1738,7 +1738,6 @@ static int msm_eeprom_platform_probe(struct platform_device *pdev)
 	struct msm_eeprom_board_info *eb_info = NULL;
 	struct device_node *of_node = pdev->dev.of_node;
 	struct msm_camera_power_ctrl_t *power_info = NULL;
-
 	CDBG("%s E\n", __func__);
 
 	e_ctrl = kzalloc(sizeof(*e_ctrl), GFP_KERNEL);

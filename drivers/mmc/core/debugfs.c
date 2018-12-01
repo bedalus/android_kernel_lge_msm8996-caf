@@ -440,7 +440,6 @@ static int mmc_ext_csd_open(struct inode *inode, struct file *filp)
 	if (!buf)
 		return -ENOMEM;
 #endif
-
 	ext_csd = kmalloc(512, GFP_KERNEL);
 	if (!ext_csd) {
 		err = -ENOMEM;
@@ -743,8 +742,8 @@ static int mmc_ext_csd_release(struct inode *inode, struct file *file)
 static const struct file_operations mmc_dbg_ext_csd_fops = {
 	.open		= mmc_ext_csd_open,
 #ifdef CONFIG_MACH_LGE
-	.read		= seq_read,
-	.llseek		= seq_lseek,
+	.read		   = seq_read,
+	.llseek 		= seq_lseek,
 	.release		= single_release,
 #else
 	.read		= mmc_ext_csd_read,

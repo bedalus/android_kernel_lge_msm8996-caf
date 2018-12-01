@@ -437,14 +437,8 @@ static int a5xx_regulator_enable(struct adreno_device *adreno_dev)
 {
 	unsigned int ret;
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-	if (!(adreno_is_a530(adreno_dev) || adreno_is_a540(adreno_dev))) {
-		/* Halt the sp_input_clk at HM level */
-		kgsl_regwrite(device, A5XX_RBBM_CLOCK_CNTL, 0x00000055);
-		a5xx_hwcg_set(adreno_dev, true);
-		/* Turn on sp_input_clk at HM level */
-		kgsl_regrmw(device, A5XX_RBBM_CLOCK_CNTL, 3, 0);
+	if (!(adreno_is_a530(adreno_dev) || adreno_is_a540(adreno_dev)))
 		return 0;
-	}
 
 	/*
 	 * Turn on smaller power domain first to reduce voltage droop.
@@ -465,15 +459,6 @@ static int a5xx_regulator_enable(struct adreno_device *adreno_dev)
 		KGSL_PWR_ERR(device, "SPTP GDSC enable failed\n");
 		return ret;
 	}
-
-	/* Disable SP clock */
-	kgsl_regrmw(device, A5XX_GPMU_GPMU_SP_CLOCK_CONTROL,
-		CNTL_IP_CLK_ENABLE, 0);
-	/* Enable hardware clockgating */
-	a5xx_hwcg_set(adreno_dev, true);
-	/* Enable SP clock */
-	kgsl_regrmw(device, A5XX_GPMU_GPMU_SP_CLOCK_CONTROL,
-		CNTL_IP_CLK_ENABLE, 1);
 
 	return 0;
 }
@@ -1989,6 +1974,8 @@ static void a5xx_start(struct adreno_device *adreno_dev)
 	} else {
 		/* if not in ISDB mode enable ME/PFP split notification */
 		kgsl_regwrite(device, A5XX_RBBM_AHB_CNTL1, 0xA6FFFFFF);
+		/* enable HWCG */
+		a5xx_hwcg_set(adreno_dev, true);
 	}
 
 	kgsl_regwrite(device, A5XX_RBBM_AHB_CNTL2, 0x0000003F);
@@ -3185,6 +3172,7 @@ static void a5xx_irq_storm_worker(struct work_struct *work)
 	mutex_unlock(&device->mutex);
 
 	/* Reschedule just to make sure everything retires */
+	kgsl_schedule_work(&device->event_work);
 	adreno_dispatcher_schedule(device);
 }
 
@@ -3235,6 +3223,8 @@ static void a5xx_cp_callback(struct adreno_device *adreno_dev, int bit)
 	}
 
 	a5xx_preemption_trigger(adreno_dev);
+
+	kgsl_schedule_work(&device->event_work);
 	adreno_dispatcher_schedule(device);
 }
 

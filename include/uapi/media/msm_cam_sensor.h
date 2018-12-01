@@ -97,8 +97,6 @@ enum sensor_sub_module_t {
 	SUB_MODULE_CSIPHY_3D,
 	SUB_MODULE_OIS,
 	SUB_MODULE_EXT,
-	SUB_MODULE_IR_LED,
-	SUB_MODULE_IR_CUT,
 
 #if 1 /* CONFIG_MACH_LGE */
 	SUB_MODULE_PROXY,
@@ -323,16 +321,6 @@ struct msm_eeprom_info_t {
 	struct msm_sensor_power_setting_array *power_setting_array;
 	enum i2c_freq_mode_t i2c_freq_mode;
 	struct msm_eeprom_memory_map_array *mem_map_array;
-};
-
-struct msm_ir_led_cfg_data_t {
-	enum msm_ir_led_cfg_type_t cfg_type;
-	int32_t pwm_duty_on_ns;
-	int32_t pwm_period_ns;
-};
-
-struct msm_ir_cut_cfg_data_t {
-	enum msm_ir_cut_cfg_type_t cfg_type;
 };
 
 struct msm_eeprom_cfg_data {
@@ -796,12 +784,6 @@ struct msm_tcs_cfg_data32 {
 
 #define VIDIOC_MSM_OIS_CFG_DOWNLOAD \
 	_IOWR('V', BASE_VIDIOC_PRIVATE + 14, struct msm_ois_cfg_download_data)
-
-#define VIDIOC_MSM_IR_LED_CFG \
-	_IOWR('V', BASE_VIDIOC_PRIVATE + 15, struct msm_ir_led_cfg_data_t)
-
-#define VIDIOC_MSM_IR_CUT_CFG \
-	_IOWR('V', BASE_VIDIOC_PRIVATE + 15, struct msm_ir_cut_cfg_data_t)
 
 #if 1 /* CONFIG_MACH_LGE */
 #define VIDIOC_MSM_PROXY_CFG \

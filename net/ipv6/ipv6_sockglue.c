@@ -211,7 +211,7 @@ static int do_ipv6_setsockopt(struct sock *sk, int level, int optname,
 					icsk->icsk_af_ops = &ipv4_specific;
 #else
 				icsk->icsk_af_ops = &ipv4_specific;
-#endif
+#endif 
 				sk->sk_socket->ops = &inet_stream_ops;
 				sk->sk_family = PF_INET;
 				tcp_sync_mss(sk, icsk->icsk_pmtu_cookie);

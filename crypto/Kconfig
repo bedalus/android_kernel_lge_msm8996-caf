@@ -1386,7 +1386,7 @@ menuconfig CRYPTO_DRBG_MENU
 	  NIST SP800-90A compliant DRBG. In the following submenu, one or
 	  more of the DRBG types must be selected.
 
-if CRYPTO_DRBG_MENU
+
 
 config CRYPTO_DRBG_HMAC
 	bool "Enable HMAC DRBG"
@@ -1406,6 +1406,10 @@ config CRYPTO_DRBG_CTR
 	select CRYPTO_AES
 	help
 	  Enable the CTR DRBG variant as defined in NIST SP800-90A.
+
+if CRYPTO_DRBG_MENU
+
+
 
 config CRYPTO_DRBG
 	tristate

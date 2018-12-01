@@ -1583,7 +1583,7 @@ static int msm_venc_queue_setup(struct vb2_queue *q,
 
 		ctrl = v4l2_ctrl_find(&inst->ctrl_handler,
 			V4L2_CID_MPEG_VIDC_VIDEO_EXTRADATA);
-		if (ctrl) {
+		if (ctrl)
 			extradata = v4l2_ctrl_g_ctrl(ctrl);
 			switch (extradata) {
 			case V4L2_MPEG_VIDC_EXTRADATA_INPUT_CROP:
@@ -1597,7 +1597,6 @@ static int msm_venc_queue_setup(struct vb2_queue *q,
 			default:
 				break;
 			}
-		}
 
 		inst->fmts[OUTPUT_PORT]->num_planes = *num_planes;
 		rc = call_hfi_op(hdev, session_set_property, inst->session,
@@ -2267,7 +2266,6 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 	case V4L2_CID_MPEG_VIDC_VIDEO_NUM_P_FRAMES:
 	{
 		int num_p, num_b;
-		u32 max_num_b_frames;
 
 		temp_ctrl = TRY_GET_CTRL(V4L2_CID_MPEG_VIDC_VIDEO_NUM_B_FRAMES);
 		num_b = temp_ctrl->val;
@@ -2280,16 +2278,18 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		else if (ctrl->id == V4L2_CID_MPEG_VIDC_VIDEO_NUM_B_FRAMES)
 			num_b = ctrl->val;
 
-		max_num_b_frames = num_b ? MAX_NUM_B_FRAMES : 0;
-		property_id = HAL_PARAM_VENC_MAX_NUM_B_FRAMES;
-		pdata = &max_num_b_frames;
-		rc = call_hfi_op(hdev, session_set_property,
-			(void *)inst->session, property_id, pdata);
-		if (rc) {
-			dprintk(VIDC_ERR,
-				"Failed : Setprop MAX_NUM_B_FRAMES %d\n",
-				rc);
-			break;
+		if (num_b) {
+			u32 max_num_b_frames = MAX_NUM_B_FRAMES;
+			property_id = HAL_PARAM_VENC_MAX_NUM_B_FRAMES;
+			pdata = &max_num_b_frames;
+			rc = call_hfi_op(hdev, session_set_property,
+				(void *)inst->session, property_id, pdata);
+			if (rc) {
+				dprintk(VIDC_ERR,
+					"Failed : Setprop MAX_NUM_B_FRAMES %d\n",
+					rc);
+				break;
+			}
 		}
 
 		property_id = HAL_CONFIG_VENC_INTRA_PERIOD;
@@ -2779,7 +2779,7 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		(inst->fmts[CAPTURE_PORT]->fourcc == V4L2_PIX_FMT_HEVC);
 
 		if (is_cont_intra_supported) {
-			if (ctrl->val != HAL_INTRA_REFRESH_NONE)
+			if (air_mbs || air_ref || cir_mbs)
 				enable.enable = true;
 			else
 				enable.enable = false;
@@ -3005,10 +3005,7 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 	case V4L2_CID_MPEG_VIDC_SET_PERF_LEVEL:
 		switch (ctrl->val) {
 		case V4L2_CID_MPEG_VIDC_PERF_LEVEL_NOMINAL:
-			if (inst->flags & VIDC_TURBO) {
-				inst->flags &= ~VIDC_TURBO;
-				msm_dcvs_init_load(inst);
-			}
+			inst->flags &= ~VIDC_TURBO;
 			break;
 		case V4L2_CID_MPEG_VIDC_PERF_LEVEL_TURBO:
 			inst->flags |= VIDC_TURBO;
@@ -3019,6 +3016,7 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 			rc = -ENOTSUPP;
 			break;
 		}
+
 		msm_comm_scale_clocks_and_bus(inst);
 		break;
 	case V4L2_CID_MPEG_VIDC_VIDEO_H264_VUI_BITSTREAM_RESTRICT:

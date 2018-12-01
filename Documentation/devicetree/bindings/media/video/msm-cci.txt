@@ -106,8 +106,6 @@ Optional properties:
 - qcom,mount-angle : should contain the physical mount angle of the sensor on
     the target
     - 0, 90, 180, 360
-- qcom,secure : should be enabled to operate the camera in secure mode
-    - 0, 1
 - qcom,mclk-23880000 : should be enabled if the supported mclk is 23.88Mhz and
     not 24 Mhz.
 - qcom,gpio-no-mux : should contain field to indicate whether gpio mux table is
@@ -168,10 +166,6 @@ Optional properties:
    property should contain phandle of respective eeprom nodes
 - qcom,ois-src : if optical image stabilization is supported by this sensor,
    this property should contain phandle of respective ois node
-- qcom,ir-led-src : if ir led is supported by this sensor, this property
-   should contain phandle of respective ir-led node
-- qcom,ir-cut-src : if ir cut is supported by this sensor, this property
-   should contain phandle of respective ir-cut node
 
 * Qualcomm MSM ACTUATOR
 
@@ -279,7 +273,6 @@ Example:
 		qcom,csiphy-sd-index = <0>;
 		qcom,csid-sd-index = <0>;
 		qcom,mount-angle = <90>;
-		qcom,secure = <1>;
 		qcom,led-flash-src = <&led_flash0>;
 		qcom,actuator-src = <&actuator0>;
 		qcom,eeprom-src = <&eeprom0>;
@@ -369,102 +362,3 @@ Example:
 	qcom,cci-clk-src = <37500000>;
 	status = "ok";
 };
-
-* Qualcomm MSM Early Cam
-
-Required properties:
-- cell-index: unique index.
-- compatible :
-    - "qcom,early-cam"
-- clocks: Contains the reference to the clock dt used.
-- clock-names: name of the clocks required for the device.
-- clock-rates: clock rate in Hz.
-- qcom,cam-vreg-name : name of the voltage regulators required for the device.
-- gdscr-supply : should contain gdsr regulator used for cci clocks.
-- mmagic-supply : should contain mmagic regulator used for mmagic clocks.
-
-Example:
-
-	qcom,early-cam {
-		cell-index = <0>;
-		compatible = "qcom,early-cam";
-		status = "ok";
-		mmagic-supply = <&gdsc_mmagic_camss>;
-		gdscr-supply = <&gdsc_camss_top>;
-		qcom,cam-vreg-name = "mmagic", "gdscr";
-		clocks = <&clock_mmss clk_mmss_mmagic_ahb_clk>,
-			<&clock_mmss clk_camss_top_ahb_clk>,
-			<&clock_mmss clk_cci_clk_src>,
-			<&clock_mmss clk_camss_cci_ahb_clk>,
-			<&clock_mmss clk_camss_cci_clk>,
-			<&clock_mmss clk_camss_ahb_clk>,
-			<&clock_mmss clk_mmagic_camss_axi_clk>,
-			<&clock_mmss clk_camss_vfe_ahb_clk>,
-			<&clock_mmss clk_camss_vfe0_ahb_clk>,
-			<&clock_mmss clk_camss_vfe_axi_clk>,
-			<&clock_mmss clk_camss_vfe0_stream_clk>,
-			<&clock_mmss clk_smmu_vfe_axi_clk>,
-			<&clock_mmss clk_smmu_vfe_ahb_clk>,
-			<&clock_mmss clk_camss_csi_vfe0_clk>,
-			<&clock_mmss clk_vfe0_clk_src>,
-			<&clock_mmss clk_camss_csi_vfe0_clk>,
-			<&clock_mmss clk_camss_csi2_ahb_clk>,
-			<&clock_mmss clk_camss_csi2_clk>,
-			<&clock_mmss clk_camss_csi2phy_clk>,
-			<&clock_mmss clk_csi2phytimer_clk_src>,
-			<&clock_mmss clk_camss_csi2phytimer_clk>,
-			<&clock_mmss clk_camss_csi2rdi_clk>,
-			<&clock_mmss clk_camss_ispif_ahb_clk>,
-			<&clock_mmss clk_camss_vfe0_clk>;
-		clock-names =
-			"mmss_mmagic_ahb_clk",
-			"camss_top_ahb_clk",
-			"cci_clk_src",
-			"camss_cci_ahb_clk",
-			"camss_cci_clk",
-			"camss_ahb_clk",
-			"mmagic_camss_axi_clk",
-			"camss_vfe_ahb_clk",
-			"camss_vfe0_ahb_clk",
-			"camss_vfe_axi_clk",
-			"camss_vfe0_stream_clk",
-			"smmu_vfe_axi_clk",
-			"smmu_vfe_ahb_clk",
-			"camss_csi_vfe0_clk",
-			"vfe0_clk_src",
-			"camss_csi_vfe0_clk",
-			"camss_csi2_ahb_clk",
-			"camss_csi2_clk",
-			"camss_csi2phy_clk",
-			"csi2phytimer_clk_src",
-			"camss_csi2phytimer_clk",
-			"camss_csi2rdi_clk",
-			"camss_ispif_ahb_clk",
-			"clk_camss_vfe0_clk";
-
-		qcom,clock-rates = <19200000
-						19200000
-						19200000
-						19200000
-						19200000
-						19200000
-						0
-						0
-						0
-						320000000
-						0
-						0
-						0
-						0
-						19200000
-						0
-						0
-						200000000
-						200000000
-						200000000
-						200000000
-						200000000
-						0
-						100000000>;
-	};
-

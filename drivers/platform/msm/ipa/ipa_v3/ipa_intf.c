@@ -358,11 +358,6 @@ int ipa3_query_intf_ext_props(struct ipa_ioc_query_intf_ext_props *ext)
 	return result;
 }
 
-static void ipa3_send_msg_free(void *buff, u32 len, u32 type)
-{
-	kfree(buff);
-}
-
 /**
  * ipa3_send_msg() - Send "message" from kernel client to IPA driver
  * @meta: [in] message meta-data
@@ -382,7 +377,6 @@ int ipa3_send_msg(struct ipa_msg_meta *meta, void *buff,
 		  ipa_msg_free_fn callback)
 {
 	struct ipa3_push_msg *msg;
-	void *data = NULL;
 
 	if (meta == NULL || (buff == NULL && callback != NULL) ||
 	    (buff != NULL && callback == NULL)) {
@@ -403,17 +397,8 @@ int ipa3_send_msg(struct ipa_msg_meta *meta, void *buff,
 	}
 
 	msg->meta = *meta;
-	if (meta->msg_len > 0 && buff) {
-		data = kmalloc(meta->msg_len, GFP_KERNEL);
-		if (data == NULL) {
-			IPAERR("fail to alloc data container\n");
-			kfree(msg);
-			return -ENOMEM;
-		}
-		memcpy(data, buff, meta->msg_len);
-		msg->buff = data;
-		msg->callback = ipa3_send_msg_free;
-	}
+	msg->buff = buff;
+	msg->callback = callback;
 
 	mutex_lock(&ipa3_ctx->msg_lock);
 	list_add_tail(&msg->link, &ipa3_ctx->msg_list);
@@ -421,8 +406,6 @@ int ipa3_send_msg(struct ipa_msg_meta *meta, void *buff,
 	IPA_STATS_INC_CNT(ipa3_ctx->stats.msg_w[meta->msg_type]);
 
 	wake_up(&ipa3_ctx->msg_waitq);
-	if (buff)
-		callback(buff, meta->msg_len, meta->msg_type);
 
 	return 0;
 }

@@ -340,7 +340,7 @@ static int32_t msm_ois_power_down(struct msm_ois_ctrl_t *o_ctrl)
 				rc = msm_camera_request_gpio_table(
 					o_ctrl->gconf->cam_gpio_req_tbl,
 					o_ctrl->gconf->cam_gpio_req_tbl_size,
-					0, 0); //LG Change
+					0,0);
 				if (rc < 0)
 					pr_err("ERR:%s:Failed in selecting state in ois power down: %d\n",
 						__func__, rc);
@@ -358,6 +358,7 @@ static int32_t msm_ois_power_down(struct msm_ois_ctrl_t *o_ctrl)
 			}
 		}
 #endif
+
 
 		o_ctrl->i2c_tbl_index = 0;
 		o_ctrl->ois_state = OIS_OPS_INACTIVE;
@@ -841,7 +842,7 @@ static int32_t msm_ois_power_up(struct msm_ois_ctrl_t *o_ctrl)
 			o_ctrl->gconf->gpio_num_info->valid[gpio] == 1) {
 			rc = msm_camera_request_gpio_table(
 				o_ctrl->gconf->cam_gpio_req_tbl,
-				o_ctrl->gconf->cam_gpio_req_tbl_size, 1, 0); //LG Change
+				o_ctrl->gconf->cam_gpio_req_tbl_size, 1, 0);
 			if (rc < 0) {
 				pr_err("ERR:%s:Failed in selecting state for ois: %d\n",
 					__func__, rc);

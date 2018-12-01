@@ -447,7 +447,6 @@ struct device_node *of_batterydata_get_best_profile(
 	return best_node;
 }
 #endif
-
 int of_batterydata_read_data(struct device_node *batterydata_container_node,
 				struct bms_battery_data *batt_data,
 				int batt_id_uv)

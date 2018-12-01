@@ -259,7 +259,6 @@ struct ndisc_options *ndisc_parse_options(u8 *opt, int opt_len,
 	}
 	return ndopts;
 }
-
 /* 2016-05-29 hyoseab.song@lge.com LGP_DATA_KERNEL_BUGFIX_ROUTE_IPV6 [START] */
 struct ndisc_options *ndisc_parse_options_ra(u8 *opt, int opt_len,
                                              struct ndisc_options *ndopts,struct inet6_dev *in6_dev)
@@ -332,7 +331,6 @@ struct ndisc_options *ndisc_parse_options_ra(u8 *opt, int opt_len,
     return ndopts;
 }
 /* 2016-05-29 hyoseab.song@lge.com LGP_DATA_KERNEL_BUGFIX_ROUTE_IPV6 [END] */
-
 int ndisc_mc_map(const struct in6_addr *addr, char *buf, struct net_device *dev, int dir)
 {
 	switch (dev->type) {
@@ -1173,20 +1171,18 @@ static void ndisc_router_discovery(struct sk_buff *skb)
 			  skb->dev->name);
 		return;
 	}
-
 /* 2016-05-29 hyoseab.song@lge.com LGP_DATA_KERNEL_BUGFIX_ROUTE_IPV6 [START] */
 /* kernel original
-	if (!ndisc_parse_options(opt, optlen, &ndopts)) {
-		ND_PRINTK(2, warn, "RA: invalid ND options\n");
-		return;
-	}
+    if (!ndisc_parse_options(opt, optlen, &ndopts)) {
+        ND_PRINTK(2, warn, "RA: invalid ND options\n");
+        return;
+    }
 */
-	if (!ndisc_parse_options_ra(opt, optlen, &ndopts, in6_dev)) {
-		ND_PRINTK(2, warn, "RA: invalid ND options\n");
-		return;
-	}
+    if (!ndisc_parse_options_ra(opt, optlen, &ndopts, in6_dev)) {
+        ND_PRINTK(2, warn, "RA: invalid ND options\n");
+    return;
+    }
 /* 2016-05-29 hyoseab.song@lge.com LGP_DATA_KERNEL_BUGFIX_ROUTE_IPV6 [END] */
-
 	if (!ipv6_accept_ra(in6_dev)) {
 		ND_PRINTK(2, info,
 			  "RA: %s, did not accept ra for dev: %s\n",

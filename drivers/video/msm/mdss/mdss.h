@@ -484,7 +484,6 @@ struct mdss_data_type {
 	u32 props;
 
 	int handoff_pending;
-	bool program_scratch_regs;
 	bool idle_pc;
 	struct mdss_perf_tune perf_tune;
 	bool traffic_shaper_en;

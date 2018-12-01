@@ -1471,6 +1471,62 @@ static void sw49407_debug_info_work_func(struct work_struct *debug_info_work)
 
 
 
+static void sw49407_te_test_work_func(struct work_struct *te_test_work)
+{
+	struct sw49407_data *d =
+			container_of(to_delayed_work(te_test_work),
+				struct sw49407_data, te_test_work);
+	u32 count = 0;
+	u32 ms = 0;
+	u32 hz = 0;
+	u32 hz_min = 0xFFFFFFFF;
+	int ret = 0;
+	int i = 0;
+
+	memset(d->te_test_log, 0x0, sizeof(d->te_test_log));
+	d->te_ret = 0;
+	d->te_write_log = DO_WRITE_LOG;
+	TOUCH_I("DDIC Test Start\n");
+
+	if (d->lcd_mode != LCD_MODE_U3) {
+		ret = snprintf(d->te_test_log + ret, 63, "not support on u%d\n",
+			d->lcd_mode);
+		d->te_ret = 1;
+		return ;
+	}
+
+	for (i = 0; i < 100; i++) {
+		sw49407_reg_read(d->dev, d->reg_info.r_tc_sts_spi_addr +
+			tc_rtc_te_interval_cnt, (u8 *)&count, sizeof(u32));
+		if (count == 0) {
+			ret = snprintf(d->te_test_log + ret, 63,
+				"[%d] : 0, 0 ms, 0 hz\n", i + 1);
+			d->te_ret = 1;
+			hz_min = 0;
+			TOUCH_I("%s\n", d->te_test_log);
+			break;
+		}
+
+		ms = (count * 100 * 1000) / 32764;
+		hz = (32764 * 100) / count;
+
+		if (hz < hz_min)
+			hz_min = hz;
+
+		if ((hz / 100 < 57) || (hz / 100 > 63)) {
+			ret = snprintf(d->te_test_log + ret, 63,
+				"[%d] : %d, %d.%02d ms, %d.%02d hz\n", i + 1, count,
+				ms / 100, ms % 100, hz / 100, hz % 100);
+			d->te_ret = 1;
+			TOUCH_I("[%d] %s\n", i + 1, d->te_test_log);
+			break;
+		}
+		touch_msleep(15);
+	}
+
+	TOUCH_I("DDIC Test END : [%s] %d.%02d hz\n", d->te_ret ? "Fail" : "Pass",
+		hz_min / 100, hz_min % 100);
+}
 static int sw49407_notify(struct device *dev, ulong event, void *data)
 {
 	struct touch_core_data *ts = to_touch_core(dev);
@@ -1566,6 +1622,7 @@ static void sw49407_init_works(struct sw49407_data *d)
 					sw49407_debug_info_work_func);
 
 	INIT_DELAYED_WORK(&d->font_download_work, sw49407_font_download);
+	INIT_DELAYED_WORK(&d->te_test_work, sw49407_te_test_work_func);
 }
 
 static void sw49407_init_locks(struct sw49407_data *d)
@@ -1620,7 +1677,8 @@ static int sw49407_probe(struct device *dev)
 
 	d->lcd_mode = LCD_MODE_U3;
 	d->tci_debug_type = 1;
-	d->code_cfg_crc_err_cnt = 0;
+	d->cfg_crc_err_cnt = 0;
+	d->code_crc_err_cnt = 0;
 	sw49407_sic_abt_probe();
 //[BringUp]	sw49407_asc_init(dev);	/* ASC */
 
@@ -1664,13 +1722,13 @@ static int sw49407_fw_compare(struct device *dev, const struct firmware *fw)
 
 	if (ts->force_fwup) {
 		update = 1;
-	} else if (binary->major && device->major) {
+	} else if (binary->major == 1 && device->major == 1) {
 		if (binary->minor != device->minor)
 			update = 1;
 		else if (binary->build > device->build)
 			update = 1;
 	} else if (binary->major ^ device->major) {
-		update = 0;
+		update = 1;
 	} else if (!binary->major && !device->major) {
 		if (binary->minor > device->minor)
 			update = 1;
@@ -2364,32 +2422,33 @@ int sw49407_check_status(struct device *dev)
 				"[5]Device_ctl not Set");
 		}
 		if (!(status & (1 << 6))) {
-			if (d->code_cfg_crc_err_cnt >= 3) {
+			if (d->code_crc_err_cnt >= 3) {
 				ret = -ERANGE;
 			} else {
-				d->code_cfg_crc_err_cnt++;
+				d->code_crc_err_cnt++;
 			}
 
 			checking_log_flag = 1;
 			length += snprintf(checking_log + length,
 				checking_log_size - length,
 				"[6]Code CRC Invalid err_cnt = %d %s\n",
-                                d->code_cfg_crc_err_cnt,
-                                d->code_cfg_crc_err_cnt>=3 ? " skip reset":"");
+                                d->code_crc_err_cnt,
+                                d->code_crc_err_cnt>=3 ? " skip reset":"");
 		}
 		if (!(status & (1 << 7))) {
-			if (d->code_cfg_crc_err_cnt >= 3) {
+			if (d->cfg_crc_err_cnt >= 3) {
 				ret = -ERANGE;
 			} else {
-				d->code_cfg_crc_err_cnt++;
+				d->cfg_crc_err_cnt++;
+				ret = -EUPGRADE;
 			}
 
 			checking_log_flag = 1;
 			length += snprintf(checking_log + length,
 				checking_log_size - length,
 				"[7]CFG CRC Invalid err_cnt = %d %s\n",
-                                d->code_cfg_crc_err_cnt,
-                                d->code_cfg_crc_err_cnt>=3 ? " skip reset":"");
+                                d->cfg_crc_err_cnt,
+                                d->cfg_crc_err_cnt>=3 ? " skip upgrade":"");
 		}
 		if (status & (1 << 9)) {
 			checking_log_flag = 1;
@@ -2447,9 +2506,10 @@ int sw49407_check_status(struct device *dev)
 
 	debugging_mask = ((status >> 16) & 0xF);
 	if (debugging_mask == 0x2) {
-		if (ret != -ERESTART) {
+		if ((ret != -ERESTART) && (ret != -EUPGRADE)) {
 			TOUCH_I("TC_Driving OK\n");
-			d->code_cfg_crc_err_cnt = 0;
+			d->code_crc_err_cnt = 0;
+			d->cfg_crc_err_cnt = 0;
 			ret = -ERANGE;
 		} else {
 			return ret;
@@ -2982,6 +3042,34 @@ static ssize_t show_te(struct device *dev, char *buf)
 	return sw49407_te_info(dev, buf);
 }
 
+static ssize_t show_te_test(struct device *dev, char *buf)
+{
+	struct sw49407_data *d = to_sw49407_data(dev);
+
+	queue_delayed_work(d->wq_log, &d->te_test_work, 0);
+
+	return 0;
+}
+
+static ssize_t show_te_result(struct device *dev, char *buf)
+{
+	struct sw49407_data *d = to_sw49407_data(dev);
+	int ret = 0;
+
+	TOUCH_I("DDIC Test result : %s\n", d->te_ret ? "Fail" : "Pass");
+	ret = snprintf(buf + ret, PAGE_SIZE, "DDIC Test result : %s\n",
+			d->te_ret ? "Fail" : "Pass");
+
+	if (d->te_write_log == DO_WRITE_LOG) {
+		sw49407_te_test_logging(d->dev, buf);
+		d->te_write_log = LOG_WRITE_DONE;
+	}
+
+	return ret;
+}
+
+static TOUCH_ATTR(te_test, show_te_test, NULL);
+static TOUCH_ATTR(te_result, show_te_result, NULL);
 static TOUCH_ATTR(reg_ctrl, NULL, store_reg_ctrl);
 static TOUCH_ATTR(tci_debug, show_tci_debug, store_tci_debug);
 static TOUCH_ATTR(swipe_debug, show_swipe_debug, store_swipe_debug);
@@ -2996,6 +3084,8 @@ static struct attribute *sw49407_attribute_list[] = {
 	&touch_attr_reset_ctrl.attr,
 	&touch_attr_q_sensitivity.attr,
 	&touch_attr_te.attr,
+	&touch_attr_te_test.attr,
+	&touch_attr_te_result.attr,
 	NULL,
 };
 
