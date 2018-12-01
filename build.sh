@@ -6,7 +6,7 @@ export ARCH=arm64
 export SUBARCH=arm64
 export CROSS_COMPILE=aarch64-linux-gnu-
 
-make device_h850_defconfig
+make h1_global_com-perf_defconfig
 
 make -j7
 
